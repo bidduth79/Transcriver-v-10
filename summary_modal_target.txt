@@ -1,0 +1,31 @@
+            beforeMatch.lastIndexOf('?'),
+            beforeMatch.lastIndexOf('!'),
+            beforeMatch.lastIndexOf('|')
+        );
+        const startSnip = lastPunc === -1 ? 0 : lastPunc + 1;
+
+        const afterMatch = cleanText.substring(pos + lowerSearch.length);
+        const puncs = ['।', '.', '?', '!', '|'];
+        let firstPunc = -1;
+        for (const p of puncs) {
+            const idx = afterMatch.indexOf(p);
+            if (idx !== -1) {
+                if (firstPunc === -1 || idx < firstPunc) {
+                    firstPunc = idx;
+                }
+            }
+        }
+        const endSnip = firstPunc === -1 ? cleanText.length : pos + lowerSearch.length + firstPunc + 1;
+        
+        let snip = cleanText.substring(startSnip, endSnip).trim();
+        snippets.push(snip);
+        pos = turnContent.indexOf(lowerSearch, pos + lowerSearch.length);
+      }
+    });
+
+    return {
+      searchTerm,
+      fileName: fileMeta?.name || 'Unknown',
+      duration: fileMeta?.duration || '00:00',
+      matchCount: ranges.length,
+      matchTimestamps: ranges,

@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+.font-stylish-bn {
+  font-family: 'Hind Siliguri', sans-serif;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+.transcript-scrollbar::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.transcript-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+.transcript-scrollbar::-webkit-scrollbar-thumb {
+  background: #3b82f6; /* Blue-500 */
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.transcript-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #2563eb; /* Blue-600 */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+@keyframes gentle-float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: gentle-float 4s ease-in-out infinite;
+}
+
+/* Custom Toast Styles */
+.custom-toast-container {
+  padding-top: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+.custom-toast-popup {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+  width: auto !important;
+}
+
+.custom-toast-html-container {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Custom Centered Modal Styles */
+.custom-centered-modal-container {
+  z-index: 999999 !important;
+}
+
+.custom-centered-modal-popup {
+  padding: 0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important;
+  width: auto !important;
+}
+
+.custom-centered-modal-html-container {
+  margin: 0 !important;
+  padding: 0 !important;
+}

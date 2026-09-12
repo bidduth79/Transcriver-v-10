@@ -1,0 +1,7 @@
+{
+  "name": "Transcrive V-10",
+  "description": "এটা বর্তমানে কাজ করা হচ্ছে,,,এই ভার্শনে সকল মডেল যোগ করা হয়েছে। 12.9.26",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
