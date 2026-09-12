@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { getActiveProvider, getTotalCalls } from '../services/ApiKeyManager';
 
 export const useApiStats = () => {
@@ -7,7 +7,7 @@ export const useApiStats = () => {
   const [activeModelName, setActiveModelName] = useState('Loading...');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const updateApiStats = async () => {
+  const updateApiStats = useCallback(async () => {
     const calls = await getTotalCalls();
     setTotalApiCalls(calls);
     const provider = await getActiveProvider();
@@ -18,7 +18,7 @@ export const useApiStats = () => {
       setActiveApiKeySource('None');
       setActiveModelName('None');
     }
-  };
+  }, []);
 
   return {
     totalApiCalls,

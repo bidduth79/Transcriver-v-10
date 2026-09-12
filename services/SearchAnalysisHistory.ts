@@ -1,5 +1,5 @@
-
-import { addToStore, getAllFromStore, deleteFromStore, STORES } from './db.ts';
+import { addToStore, getAllFromStore, deleteFromStore } from './db.ts';
+import { STORES } from '../constants/storeNames.ts';
 
 export interface SearchAnalysisItem {
   id: string;

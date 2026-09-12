@@ -22,9 +22,16 @@ const getCachedProfile = (name: string): SpeakerProfile | null => {
 const setCachedProfile = (name: string, profile: SpeakerProfile) => {
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    const MAX_CACHE_ENTRIES = 50;
+    const keys = Object.keys(cache);
+    if (keys.length >= MAX_CACHE_ENTRIES && !cache[name.toLowerCase()]) {
+      delete cache[keys[0]]; // FIFO
+    }
     cache[name.toLowerCase()] = profile;
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch (e) {}
+  } catch (e) {
+    console.error("Failed to set cached speaker profile:", e);
+  }
 };
 
 // Dual-Language Wikipedia summary fetcher
@@ -35,7 +42,9 @@ const fetchWikiSummary = async (title: string, lang: 'bn' | 'en'): Promise<strin
       const data = await res.json();
       return data.extract || null;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("Failed to fetch Wikipedia summary:", e);
+  }
   return null;
 };
 
@@ -91,9 +100,10 @@ export const useSpeakerProfile = (transcriptContext: string) => {
       if (!apiKey) throw new Error("এপিআই কি (API Key) কনফিগার করা নেই। Settings থেকে ঠিক করুন।");
 
       const ai = new GoogleGenAI({ apiKey });
+      const safeContext = transcriptContext.substring(0, 2000).replace(/"/g, "'");
       const prompt = `You are an expert Bangladeshi investigative researcher and biographer. Provide a structured, highly detailed profile in BENGALI language for the public figure: "${name}".
 Use the following transcript context to understand their relevance if needed:
-"${transcriptContext.substring(0, 2000)}"
+"${safeContext}"
 
 CRITICAL LANGUAGE REQUIREMENT:
 - All descriptive fields ("name", "description", "career", "bgbViews") MUST be written strictly and fluently in BENGALI (বাংলা).

@@ -2,11 +2,8 @@ import { useState, useRef, useCallback } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 
 // Import local assets using Vite's ?url query
-// @ts-ignore
 import coreURL from '@ffmpeg/core?url';
-// @ts-ignore
 import wasmURL from '@ffmpeg/core/wasm?url';
-// @ts-ignore
 import workerURL from '@ffmpeg/ffmpeg/worker?url';
 
 export const useFFmpeg = () => {

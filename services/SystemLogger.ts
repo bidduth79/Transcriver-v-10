@@ -1,4 +1,5 @@
-import { addToStore, STORES } from './db.ts';
+import { addToStore } from './db.ts';
+import { STORES } from '../constants/storeNames.ts';
 
 export interface SystemLogItem {
   id: string;

@@ -192,8 +192,7 @@ export const InformationModal: React.FC<InformationModalProps> = ({ isOpen, onCl
     window.removeEventListener('mouseup', stopResizing);
   };
 
-  // @ts-ignore
-  const currentData = guideData[activeTab];
+  const currentData = guideData[activeTab as keyof typeof guideData];
 
   return (
     <>

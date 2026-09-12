@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { TranscriptMeta, FileMeta } from '../types';
 
 export interface FailedFile {
   file: File;
@@ -11,9 +12,9 @@ export const useBatchProcessor = (
   setFile: (file: File) => void,
   setFileUrl: (url: string) => void,
   setActiveHistoryId: (id: string | null) => void,
-  setTranscriptMeta: (meta: any) => void,
-  setFileMeta: (meta: any) => void,
-  processTranscription: (file: File, metadata: any, isAutoProcess?: boolean) => Promise<any>
+  setTranscriptMeta: (meta: TranscriptMeta | null) => void,
+  setFileMeta: (meta: FileMeta) => void,
+  processTranscription: (file: File, metadata: FileMeta, isAutoProcess?: boolean) => Promise<any>
 ) => {
   const [batchQueue, setBatchQueue] = useState<File[]>([]);
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
@@ -81,6 +82,12 @@ export const useBatchProcessor = (
   useEffect(() => {
     isBatchPausedRef.current = isBatchPaused;
   }, [isBatchPaused]);
+
+  useEffect(() => {
+    return () => {
+      if (batchTimerRef.current) clearInterval(batchTimerRef.current);
+    };
+  }, []);
 
   const startCountdownForNextFile = (queue: File[], nextIndex: number) => {
     if (isBatchPausedRef.current) {
@@ -246,6 +253,7 @@ export const useBatchProcessor = (
 
   const startBatch = () => {
     setHasBatchStarted(true);
+    setIsBatchProcessing(true);
     setIsBatchPaused(false);
     setFailedFiles([]);
     setProcessedCount(0);
@@ -294,22 +302,18 @@ export const useBatchProcessor = (
   };
 
   const removeBatchFile = (indexToRemove: number) => {
-    setBatchQueue(prev => {
-      const newQueue = [...prev];
-      newQueue.splice(indexToRemove, 1);
-      return newQueue;
-    });
+    const newQueue = batchQueue.filter((_, i) => i !== indexToRemove);
+    setBatchQueue(newQueue);
     
     if (indexToRemove < currentBatchIndex) {
       setCurrentBatchIndex(prev => prev - 1);
     } else if (indexToRemove === currentBatchIndex && hasBatchStarted && !isBatchPaused) {
       if (batchTimerRef.current) clearInterval(batchTimerRef.current);
       setBatchCountdown(0);
-      const newQueue = batchQueue.filter((_, i) => i !== indexToRemove);
       processNextBatchFile(newQueue, currentBatchIndex);
     }
     
-    if (batchQueue.length <= 1) {
+    if (newQueue.length <= 1) {
       cancelBatch();
     }
   };

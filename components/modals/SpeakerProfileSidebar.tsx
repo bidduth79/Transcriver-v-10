@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { SpeakerProfile, SpeakerCustomNote } from '../../types/speaker';
 import { useAppTheme } from '../../hooks/useAppTheme';
+import { SpeakerProfileTab } from './SpeakerProfileTab';
+import { SpeakerArchiveTab } from './SpeakerArchiveTab';
+import { SpeakerNotesTab } from './SpeakerNotesTab';
+import { SpeakerResearchTab } from './SpeakerResearchTab';
 
 interface SpeakerProfileSidebarProps {
   isOpen: boolean;
@@ -180,7 +184,7 @@ export const SpeakerProfileSidebar: React.FC<SpeakerProfileSidebarProps> = ({
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
             বিজিবি হিস্টোরি
             {dbStats && dbStats.bgbMentionCount > 0 && (
-              <span className="px-1.5 py-0.2 bg-red-500 text-white rounded-full text-[10px] font-bold animate-pulse">
+              <span className="px-1.5 py-0.5 bg-red-500 text-white rounded-full text-[10px] font-bold animate-pulse">
                 {dbStats.bgbMentionCount}
               </span>
             )}

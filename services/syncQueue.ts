@@ -73,3 +73,10 @@ export const processQueue = async () => {
 };
 
 window.addEventListener('online', processQueue);
+
+// Call once on load to flush any pre-existing queue
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    processQueue();
+  }, 1000);
+}

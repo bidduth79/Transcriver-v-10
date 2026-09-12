@@ -5,18 +5,6 @@ import App from './App.tsx';
 import './index.css';
 import { ErrorBoundary } from './components/common/ErrorBoundary.tsx';
 
-// Prevent DataCloneError from performance.measure in React DevTools or third-party libraries
-if (typeof performance !== 'undefined' && performance.measure) {
-  const originalMeasure = performance.measure;
-  performance.measure = function(...args: any[]) {
-    try {
-      return originalMeasure.apply(this, args as any);
-    } catch (e) {
-      // Ignore DataCloneError
-    }
-  };
-}
-
 window.addEventListener('error', (event) => {
   if (event.message === 'Script error.') {
       event.preventDefault(); // Suppress cross-origin script errors (often extensions)

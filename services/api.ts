@@ -6,17 +6,7 @@ import { supabase } from './supabase';
 import { addToQueue } from './syncQueue';
 import { get, set } from 'idb-keyval';
 
-// Define stores locally to avoid circular dependency with db.ts
-const FIREBASE_SYNCED_STORES = [
-  'studio_history',
-  'studio_reports',
-  'studio_analysis',
-  'user_api_keys',
-  'system_master_keys',
-  'global_stats',
-  'gemini_call_logs',
-  'assistant_chat_history'
-];
+import { FIREBASE_SYNCED_STORES } from '../constants/storeNames';
 
 export const checkCloudConnection = async (): Promise<{ status: 'online' | 'offline' | 'auth-error', message: string }> => {
   try {
@@ -130,7 +120,9 @@ export const saveDataDual = async (storeName: string, data: any) => {
   // 1. Save to Primary Cache (IndexedDB) for instant UX
   try {
      await set(`${storeName}_${id}`, payload);
-  } catch(e) {}
+  } catch(e) {
+     console.error("Failed to save to Primary Cache (IndexedDB):", e);
+  }
 
   const isSyncedStore = FIREBASE_SYNCED_STORES.includes(storeName);
 
@@ -182,7 +174,9 @@ export const deleteDataDual = async (storeName: string, id: string) => {
   try {
      const del = await import('idb-keyval').then(m => m.del);
      await del(`${storeName}_${id}`);
-  } catch(e) {}
+  } catch (e) {
+    console.error("Failed to delete from Primary Cache:", e);
+  }
 
   const isSyncedStore = FIREBASE_SYNCED_STORES.includes(storeName);
   const promises = [];
@@ -220,7 +214,9 @@ export const fetchConfigDual = async (docName: string) => {
         if (res.ok) {
             return await res.json();
         }
-    } catch (e) { }
+    } catch (e) { 
+        console.error("Failed to fetch config locally:", e);
+    }
     
     try {
         await authPromise;

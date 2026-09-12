@@ -93,11 +93,16 @@ export const TranscriberReportModal = ({
       grouped[key].durationSecs += parseDurationToSeconds(item.duration);
     });
 
-    // Convert to array and sort by date
-    const rows = Object.values(grouped).sort((a, b) => {
-        // @ts-ignore
+    interface ReportRow {
+      date: string;
+      method: string;
+      fileType: string;
+      qty: number;
+      durationSecs: number;
+    }
+
+    const rows = (Object.values(grouped) as ReportRow[]).sort((a, b) => {
         const dateA = a.date.split('/').reverse().join('-');
-        // @ts-ignore
         const dateB = b.date.split('/').reverse().join('-');
         return dateA.localeCompare(dateB);
     });

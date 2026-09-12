@@ -121,7 +121,7 @@ export const useTranscription = (
       estimated = Math.max(25, Math.floor(sizeMB * 10));
     }
 
-    console.log(`Estimating transcription time: ${estimated}s for ${audioDurationSeconds}s audio`);
+    console.debug(`Estimating transcription time: ${estimated}s for ${audioDurationSeconds}s audio`);
     setEstimatedSeconds(estimated);
     setCurrentStage(appLang === 'bn' ? 'অডিও সিগন্যাল ডিকোড করা হচ্ছে...' : 'Decoding audio signals...');
     
@@ -245,10 +245,8 @@ export const useTranscription = (
       const fileName = (inputFile as File).name || inputMetadata.name || "audio_file";
       const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : 'mp3';
 
-      // Check if history item already exists to prevent double history
-      const existingHistory = await getAllFromStore(STORES.HISTORY) || [];
-      const existingItem = (existingHistory as any[]).find((item: any) => item.fileName === fileName);
-      const historyId = existingItem ? existingItem.id : Date.now().toString();
+      // Generate a truly unique ID to prevent overwriting files with the same name
+      const historyId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
       const actualElapsedSeconds = Math.round((Date.now() - startTime) / 1000);
       setElapsedSeconds(actualElapsedSeconds);

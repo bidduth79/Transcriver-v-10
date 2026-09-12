@@ -31,8 +31,9 @@ import { useAppTheme } from './hooks/useAppTheme';
 import { useAppModals } from './hooks/useAppModals';
 import { useBatchProcessor } from './hooks/useBatchProcessor';
 import { translations } from './translations';
-
-
+import { useToast } from './hooks/useToast';
+import { loadAudioFromStore } from './utils/audioUtils';
+import { useFileHandler } from './hooks/useFileHandler';
 
 const App: React.FC = () => {
   const {
@@ -55,77 +56,7 @@ const App: React.FC = () => {
     isAiLoading, setIsAiLoading, updateApiStats
   } = useApiStats();
 
-  const addToast = (msg: string, type: 'success' | 'error' | 'info' | 'warning') => {
-    const title = appLang === 'bn' 
-      ? (type === 'success' ? 'সফল' : type === 'error' ? 'ত্রুটি' : type === 'warning' ? 'সতর্কতা' : 'তথ্য')
-      : (type === 'success' ? 'Success' : type === 'error' ? 'Error' : type === 'warning' ? 'Warning' : 'Info');
-      
-    // Define colors based on type
-    let bgColor, iconBg, svgPath;
-    
-    if (type === 'success') {
-      bgColor = '#064e3b'; // Dark green
-      iconBg = '#059669';  // Lighter green
-      svgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-    } else if (type === 'error') {
-      bgColor = '#7f1d1d'; // Dark red
-      iconBg = '#dc2626';  // Lighter red
-      svgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-    } else if (type === 'warning') {
-      bgColor = '#78350f'; // Dark yellow/brown
-      iconBg = '#d97706';  // Yellow
-      svgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
-    } else {
-      bgColor = '#002752'; // Dark blue
-      iconBg = '#2563eb';  // Blue
-      svgPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-    }
-
-    const htmlContent = `
-      <div style="display: flex; align-items: center; padding: 12px 16px; min-width: 300px; max-width: 400px; gap: 16px;">
-        <!-- Icon -->
-        <div style="flex-shrink: 0; width: 36px; height: 36px; background-color: ${iconBg}; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <svg style="width: 20px; height: 20px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            ${svgPath}
-          </svg>
-        </div>
-        
-        <!-- Text -->
-        <div style="display: flex; flex-direction: column; text-align: left; flex-grow: 1;">
-          <span style="font-weight: 600; color: white; font-size: 15px; line-height: 1.3;">${title}</span>
-          <span style="color: rgba(255,255,255,0.9); font-size: 13px; margin-top: 4px; line-height: 1.4;">${msg}</span>
-        </div>
-
-        <!-- Close Button -->
-        <button onclick="Swal.close()" style="flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: transparent; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'; this.style.borderColor='rgba(255,255,255,0.8)';" onmouseout="this.style.backgroundColor='transparent'; this.style.borderColor='rgba(255,255,255,0.4)';">
-          <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-    `;
-
-    Swal.fire({
-      toast: true,
-      position: 'top-end',
-      showConfirmButton: false,
-      showCloseButton: false,
-      timer: 3000,
-      timerProgressBar: false,
-      html: htmlContent,
-      background: bgColor,
-      padding: 0,
-      customClass: {
-        container: 'custom-toast-container',
-        popup: 'custom-toast-popup',
-        htmlContainer: 'custom-toast-html-container'
-      },
-      didOpen: (toast) => {
-        toast.addEventListener('mouseenter', Swal.stopTimer)
-        toast.addEventListener('mouseleave', Swal.resumeTimer)
-      }
-    });
-  };
+  const { addToast } = useToast(appLang);
 
   // Custom Hooks
   const {
@@ -166,7 +97,9 @@ const App: React.FC = () => {
           osc.start(startTime);
           osc.stop(startTime + 0.8);
       });
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to play notification sound:", e);
+    }
   };
 
   const {
@@ -226,268 +159,27 @@ const App: React.FC = () => {
     appLang, addToast, setFile, setFileUrl, setActiveHistoryId, setTranscriptMeta, setFileMeta, processTranscription
   );
 
-  const handleFileChange = async (e: any, autoStart = false) => {
-    const files = Array.from(e.target.files) as File[];
-    if (files.length === 0) return;
-
-    if (files.length > 1 || e.target.id === 'folderInput') {
-      // Filter supported audio/video files including opus
-      const supportedFiles = files.filter(f => 
-        f.type.startsWith('audio/') || 
-        f.type.startsWith('video/') || 
-        f.name.toLowerCase().match(/\.(opus|mp3|wav|mp4|m4a|aac|ogg|webm|flac)$/)
-      );
-      
-      if (supportedFiles.length === 0) {
-        Swal.fire({
-          html: `
-            <div style="display: flex; align-items: center; padding: 8px 12px; min-width: 250px; max-width: 350px; gap: 12px;">
-              <div style="flex-shrink: 0; width: 28px; height: 28px; background-color: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <svg style="width: 16px; height: 16px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <div style="display: flex; flex-direction: column; text-align: left; flex-grow: 1;">
-                <span style="font-weight: 600; color: white; font-size: 13px; line-height: 1.2;">${appLang === 'bn' ? 'ত্রুটি' : 'Error'}</span>
-                <span style="color: rgba(255,255,255,0.85); font-size: 11px; margin-top: 2px; line-height: 1.3;">${appLang === 'bn' ? 'কোনো সমর্থিত অডিও/ভিডিও ফাইল পাওয়া যায়নি' : 'No supported audio/video files found'}</span>
-              </div>
-              <button onclick="Swal.close()" style="flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: transparent; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'; this.style.borderColor='rgba(255,255,255,0.8)';" onmouseout="this.style.backgroundColor='transparent'; this.style.borderColor='rgba(255,255,255,0.4)';">
-                <svg style="width: 12px; height: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-          `,
-          toast: false,
-          position: 'center',
-          showConfirmButton: false,
-          showCloseButton: false,
-          timer: 4000,
-          background: '#7f1d1d',
-          padding: 0,
-          customClass: {
-            container: 'custom-centered-modal-container',
-            popup: 'custom-centered-modal-popup',
-            htmlContainer: 'custom-centered-modal-html-container'
-          }
-        });
-        return;
-      }
-
-      Swal.fire({
-        html: `
-          <div style="display: flex; align-items: center; padding: 12px 16px; min-width: 300px; max-width: 400px; gap: 12px; flex-direction: column;">
-            <div style="display: flex; align-items: center; width: 100%; gap: 12px;">
-              <div style="flex-shrink: 0; width: 32px; height: 32px; background-color: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <svg style="width: 18px; height: 18px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <div style="display: flex; flex-direction: column; text-align: left; flex-grow: 1;">
-                <span style="font-weight: 600; color: white; font-size: 14px; line-height: 1.2;">${appLang === 'bn' ? 'ফোল্ডার আপলোড' : 'Folder Upload'}</span>
-                <span style="color: rgba(255,255,255,0.85); font-size: 12px; margin-top: 2px; line-height: 1.3;">${appLang === 'bn' ? `মোট ${supportedFiles.length} টি ফাইল পাওয়া গেছে। আপনি কি ব্যাচ প্রসেসিং শুরু করতে চান?` : `Found ${supportedFiles.length} files. Do you want to start batch processing?`}</span>
-              </div>
-            </div>
-            <div style="display: flex; gap: 8px; width: 100%; margin-top: 4px;">
-              <button id="swal-folder-confirm" style="flex: 1; background-color: white; color: #064e3b; border: none; padding: 6px 12px; border-radius: 9999px; font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.2s ease;">${appLang === 'bn' ? 'শুরু করুন' : 'Start'}</button>
-              <button id="swal-folder-cancel" style="flex: 1; background-color: transparent; color: white; border: 1px solid rgba(255,255,255,0.4); padding: 6px 12px; border-radius: 9999px; font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.2s ease;">${appLang === 'bn' ? 'বাতিল' : 'Cancel'}</button>
-            </div>
-          </div>
-        `,
-        toast: false,
-        position: 'center',
-        showConfirmButton: false,
-        showCloseButton: false,
-        background: '#064e3b',
-        padding: 0,
-        customClass: {
-          container: 'custom-centered-modal-container',
-          popup: 'custom-centered-modal-popup',
-          htmlContainer: 'custom-centered-modal-html-container'
-        },
-        didOpen: () => {
-          const confirmBtn = document.getElementById('swal-folder-confirm');
-          const cancelBtn = document.getElementById('swal-folder-cancel');
-          
-          if (confirmBtn) {
-            confirmBtn.addEventListener('click', () => {
-              Swal.close();
-              setBatchQueue(supportedFiles);
-              setCurrentBatchIndex(0);
-              setIsBatchProcessing(true);
-              setHasBatchStarted(false);
-              setIsBatchPaused(false);
-              setBatchCountdown(0);
-            });
-          }
-          
-          if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => {
-              Swal.close();
-              // Reset file input
-              if (fileInputRef.current) fileInputRef.current.value = '';
-              const folderInput = document.getElementById('folderInput') as HTMLInputElement;
-              if (folderInput) folderInput.value = '';
-            });
-          }
-        }
-      });
-      
-      // DO NOT start processing automatically
-      return;
-    }
-
-    const selectedFile = files[0];
-    if (selectedFile.size > 70 * 1024 * 1024) {
-      addToast(appLang === 'bn' ? 'ফাইল সাইজ ৭০ এমবি এর বেশি হতে পারবে না' : 'File size cannot exceed 70MB', 'error');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    const loadAndProcessFile = (forceStart = false) => {
-      setFile(selectedFile);
-      if (fileUrl) URL.revokeObjectURL(fileUrl);
-      const url = URL.createObjectURL(selectedFile);
-      setFileUrl(url);
-      setActiveHistoryId(null);
-      setTranscriptMeta(null); // Clear previous transcript meta
-      setTranscript(''); // Clear previous transcript
-      setStatus('idle'); // Reset status
-      
-      const audio = new Audio(url);
-      
-      const finishMetadata = (durationStr: string) => {
-        const metadata = {
-          name: selectedFile.name,
-          size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
-          duration: durationStr,
-          type: selectedFile.type,
-          date: new Date().toISOString()
-        };
-        setFileMeta(metadata);
-        if (autoStart || forceStart) {
-          processTranscription(selectedFile, metadata);
-        }
-      };
-
-      let resolved = false;
-
-      audio.onloadedmetadata = () => {
-        if (resolved) return;
-        resolved = true;
-        const duration = audio.duration;
-        let durationStr = "Unknown";
-        if (isFinite(duration) && !isNaN(duration)) {
-          const mins = Math.floor(duration / 60);
-          const secs = Math.floor(duration % 60);
-          durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-        finishMetadata(durationStr);
-      };
-
-      audio.onerror = () => {
-        if (resolved) return;
-        resolved = true;
-        finishMetadata("Unknown");
-      };
-
-      setTimeout(() => {
-        if (resolved) return;
-        resolved = true;
-        finishMetadata("Unknown");
-      }, 3000);
-    };
-
-    const existingHistoryItem = history.find(h => h.fileName === selectedFile.name);
-    
-    if (existingHistoryItem) {
-      Swal.fire({
-        html: `
-          <div style="display: flex; align-items: center; padding: 12px 16px; min-width: 300px; max-width: 400px; gap: 12px; flex-direction: column;">
-            <div style="display: flex; align-items: center; width: 100%; gap: 12px;">
-              <div style="flex-shrink: 0; width: 32px; height: 32px; background-color: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <svg style="width: 18px; height: 18px; color: white;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <div style="display: flex; flex-direction: column; text-align: left; flex-grow: 1;">
-                <span style="font-weight: 600; color: white; font-size: 14px; line-height: 1.2;">${appLang === 'bn' ? 'ফাইলটি ইতিমধ্যে ট্রান্সক্রাইব করা হয়েছে!' : 'File Already Transcribed!'}</span>
-                <span style="color: rgba(255,255,255,0.85); font-size: 12px; margin-top: 2px; line-height: 1.3;">${appLang === 'bn' ? 'আপনি কি নতুন করে আবার ট্রান্সক্রাইব করতে চান, নাকি আগের রেজাল্ট দেখতে চান?' : 'Do you want to transcribe it again, or view the previous result?'}</span>
-              </div>
-            </div>
-            <div style="display: flex; gap: 8px; width: 100%; margin-top: 4px;">
-              <button id="swal-custom-confirm" style="flex: 1; background-color: white; color: #002752; border: none; padding: 6px 12px; border-radius: 9999px; font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.2s ease;">${appLang === 'bn' ? 'নতুন করে করুন' : 'Transcribe Again'}</button>
-              <button id="swal-custom-cancel" style="flex: 1; background-color: transparent; color: white; border: 1px solid rgba(255,255,255,0.4); padding: 6px 12px; border-radius: 9999px; font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.2s ease;">${appLang === 'bn' ? 'আগেরটি দেখুন' : 'View Existing'}</button>
-            </div>
-          </div>
-        `,
-        toast: false,
-        position: 'center',
-        showConfirmButton: false,
-        showCloseButton: false,
-        background: '#002752',
-        padding: 0,
-        customClass: {
-          container: 'custom-centered-modal-container',
-          popup: 'custom-centered-modal-popup',
-          htmlContainer: 'custom-centered-modal-html-container'
-        },
-        didOpen: () => {
-          const confirmBtn = document.getElementById('swal-custom-confirm');
-          const cancelBtn = document.getElementById('swal-custom-cancel');
-          
-          if (confirmBtn) {
-            confirmBtn.addEventListener('click', () => {
-              Swal.close();
-              loadAndProcessFile(true);
-            });
-          }
-          
-          if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => {
-              Swal.close();
-              // Load existing transcript AND the audio file
-              setFile(selectedFile);
-              if (fileUrl) URL.revokeObjectURL(fileUrl);
-              const url = URL.createObjectURL(selectedFile);
-              setFileUrl(url);
-              
-              const audio = new Audio(url);
-              audio.onloadedmetadata = () => {
-                const duration = audio.duration;
-                const mins = Math.floor(duration / 60);
-                const secs = Math.floor(duration % 60);
-                const metadata = {
-                  name: selectedFile.name,
-                  size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
-                  duration: `${mins}:${secs.toString().padStart(2, '0')}`,
-                  type: selectedFile.type,
-                  date: new Date().toISOString()
-                };
-                setFileMeta(metadata);
-              };
-
-              setTranscript(existingHistoryItem.transcript);
-              setStatus('completed');
-              setTranscriptMeta({ 
-                name: existingHistoryItem.fileName, 
-                duration: existingHistoryItem.duration, 
-                channelName: existingHistoryItem.channelName, 
-                date: existingHistoryItem.publishedDate 
-              });
-              setActiveHistoryId(existingHistoryItem.id);
-              addToast(appLang === 'bn' ? "হিস্টোরি লোড হয়েছে" : "History loaded", 'info');
-            });
-          }
-        }
-      });
-    } else {
-      loadAndProcessFile();
-    }
-    
-    // Clear the input value so the same file can be selected again
-    e.target.value = '';
-  };
+  const { handleFileChange } = useFileHandler({
+    appLang,
+    addToast,
+    setFile,
+    setFileUrl,
+    fileUrl,
+    setActiveHistoryId,
+    setTranscriptMeta,
+    setTranscript,
+    setStatus,
+    setFileMeta,
+    processTranscription,
+    history,
+    setBatchQueue,
+    setCurrentBatchIndex,
+    setIsBatchProcessing,
+    setHasBatchStarted,
+    setIsBatchPaused,
+    setBatchCountdown,
+    fileInputRef
+  });
 
   const { isRecording, recordingTime, startRecording, stopRecording } = useAudioRecorder(
     appLang, addToast, (recordedFile) => handleFileChange({ target: { files: [recordedFile] } })
@@ -534,7 +226,7 @@ const App: React.FC = () => {
       window.removeEventListener('app-error', handleAppError);
       if (audioEl) audioEl.removeEventListener('timeupdate', handleTimeUpdate);
     };
-  }, [fileUrl]);
+  }, [fileUrl, loadHistory, updateApiStats, addToast]);
 
 
 
@@ -613,43 +305,10 @@ const App: React.FC = () => {
             setTranscript(item.transcript);
             setStatus('completed');
             setTranscriptMeta({ name: item.fileName, duration: item.duration, channelName: item.channelName, date: item.publishedDate });
-            
             // Mark item as opened and try to load audio
-            try {
-              const { getFromStore, addToStore } = await import('./services/db');
-              if (!item.hasBeenOpened) {
-                const updatedItem = { ...item, hasBeenOpened: true };
-                await addToStore('studio_history', updatedItem);
-                loadHistory();
-              }
-              
-              const audioData: any = await getFromStore('youtube_audio', item.id);
-              if (audioData && audioData.base64) {
-                let mimeType = 'audio/mp3';
-                const ext = (audioData.format || 'mp3').toLowerCase();
-                if (ext === 'm4a') mimeType = 'audio/mp4';
-                else if (ext === 'wav') mimeType = 'audio/wav';
-                else if (ext === 'opus' || ext === 'ogg') mimeType = 'audio/ogg';
-                else if (ext === 'webm') mimeType = 'video/webm';
-                else if (ext === 'mp4') mimeType = 'video/mp4';
-                else if (ext === 'aac') mimeType = 'audio/aac';
-
-                const dataUrl = `data:${mimeType};base64,${audioData.base64}`;
-                const res = await fetch(dataUrl);
-                const blob = await res.blob();
-                
-                // Free memory
-                audioData.base64 = null;
-                
-                const fileObj = new File([blob], item.fileName, { type: mimeType });
-                setFile(fileObj);
-                setFileMeta({ name: item.fileName, duration: item.duration, type: mimeType, size: (blob.size / (1024 * 1024)).toFixed(2) + ' MB', date: new Date().toISOString() });
-                if (fileUrl) URL.revokeObjectURL(fileUrl);
-                setFileUrl(URL.createObjectURL(fileObj));
-                setTranscriptMeta(null); // Clear transcript meta so it falls back to fileMeta and isSynced becomes true
-              }
-            } catch (e) {
-              console.error("Failed to load audio for history item", e);
+            await loadAudioFromStore(item, setFile, setFileMeta, setFileUrl, setTranscriptMeta, fileUrl || undefined);
+            if (!item.hasBeenOpened) {
+              loadHistory();
             }
 
             setActiveHistoryId(item.id);
@@ -753,36 +412,7 @@ const App: React.FC = () => {
                 
                 // Try to load audio from store if videoId is provided
                 if (videoId) {
-                  try {
-                    const { getFromStore } = await import('./services/db');
-                    const audioData: any = await getFromStore('youtube_audio', videoId);
-                    if (audioData && audioData.base64) {
-                      let mimeType = 'audio/mp3';
-                      const ext = (audioData.format || 'mp3').toLowerCase();
-                      if (ext === 'm4a') mimeType = 'audio/mp4';
-                      else if (ext === 'wav') mimeType = 'audio/wav';
-                      else if (ext === 'opus' || ext === 'ogg') mimeType = 'audio/ogg';
-                      else if (ext === 'webm') mimeType = 'video/webm';
-                      else if (ext === 'mp4') mimeType = 'video/mp4';
-                      else if (ext === 'aac') mimeType = 'audio/aac';
-
-                      const dataUrl = `data:${mimeType};base64,${audioData.base64}`;
-                      const res = await fetch(dataUrl);
-                      const blob = await res.blob();
-                      
-                      // Free memory
-                      audioData.base64 = null;
-                      
-                      const fileObj = new File([blob], title, { type: mimeType });
-                      setFile(fileObj);
-                      setFileMeta({ name: title, duration, type: mimeType, size: (blob.size / (1024 * 1024)).toFixed(2) + ' MB', date: new Date().toISOString() });
-                      if (fileUrl) URL.revokeObjectURL(fileUrl);
-                      setFileUrl(URL.createObjectURL(fileObj));
-                      setTranscriptMeta(null); // Clear transcript meta so it falls back to fileMeta and isSynced becomes true
-                    }
-                  } catch (e) {
-                    console.error("Failed to load audio for transcript", e);
-                  }
+                  await loadAudioFromStore({ videoId, title, duration }, setFile, setFileMeta, setFileUrl, setTranscriptMeta, fileUrl || undefined);
                 }
 
                 setActiveTool(null); // Close monitor to show transcript
@@ -887,41 +517,9 @@ const App: React.FC = () => {
              setTranscriptMeta({ name: item.fileName, duration: item.duration, channelName: item.channelName, date: item.publishedDate });
              
              // Mark item as opened and try to load audio
-             try {
-               const { getFromStore, addToStore } = await import('./services/db');
-               if (!item.hasBeenOpened) {
-                 const updatedItem = { ...item, hasBeenOpened: true };
-                 await addToStore('studio_history', updatedItem);
-                 loadHistory();
-               }
-
-               const audioData: any = await getFromStore('youtube_audio', item.id);
-               if (audioData && audioData.base64) {
-                 let mimeType = 'audio/mp3';
-                 const ext = (audioData.format || 'mp3').toLowerCase();
-                 if (ext === 'm4a') mimeType = 'audio/mp4';
-                 else if (ext === 'wav') mimeType = 'audio/wav';
-                 else if (ext === 'opus' || ext === 'ogg') mimeType = 'audio/ogg';
-                 else if (ext === 'webm') mimeType = 'video/webm';
-                 else if (ext === 'mp4') mimeType = 'video/mp4';
-                 else if (ext === 'aac') mimeType = 'audio/aac';
-
-                 const dataUrl = `data:${mimeType};base64,${audioData.base64}`;
-                 const res = await fetch(dataUrl);
-                 const blob = await res.blob();
-                 
-                 // Free memory
-                 audioData.base64 = null;
-                 
-                 const fileObj = new File([blob], item.fileName, { type: mimeType });
-                 setFile(fileObj);
-                 setFileMeta({ name: item.fileName, duration: item.duration, type: mimeType, size: (blob.size / (1024 * 1024)).toFixed(2) + ' MB', date: new Date().toISOString() });
-                 if (fileUrl) URL.revokeObjectURL(fileUrl);
-                 setFileUrl(URL.createObjectURL(fileObj));
-                 setTranscriptMeta(null); // Clear transcript meta so it falls back to fileMeta and isSynced becomes true
-               }
-             } catch (e) {
-               console.error("Failed to load audio for history item", e);
+             await loadAudioFromStore(item, setFile, setFileMeta, setFileUrl, setTranscriptMeta, fileUrl || undefined);
+             if (!item.hasBeenOpened) {
+               loadHistory();
              }
 
              setActiveHistoryId(item.id);

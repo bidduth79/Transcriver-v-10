@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAllFromStore, deleteFromStore, addToStore, STORES } from '../services/db';
+import { HistoryItem } from '../types';
 
 export const useHistory = (
   appLang: 'en' | 'bn',
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void,
   onHistoryItemDeleted: (id: string) => void
 ) => {
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLimit, setHistoryLimit] = useState(20);
   const [isHistoryFullscreen, setIsHistoryFullscreen] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
@@ -23,15 +24,15 @@ export const useHistory = (
     return () => clearTimeout(timer);
   }, [histSearch]);
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
-      const allHistory = (await getAllFromStore(STORES.HISTORY)) as any[];
-      const sorted = allHistory.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const allHistory = (await getAllFromStore(STORES.HISTORY)) as HistoryItem[];
+      const sorted = allHistory.sort((a: HistoryItem, b: HistoryItem) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setHistory(sorted);
     } catch (e) {
       console.error("Failed to load history", e);
     }
-  };
+  }, []);
 
   const handleDeleteHistoryItem = async (id: string) => {
     await deleteFromStore(STORES.HISTORY, id);
@@ -90,8 +91,8 @@ export const useHistory = (
     }
   };
 
-  const groupHistory = (items: any[]) => {
-    const groups: any = {};
+  const groupHistory = useCallback((items: HistoryItem[]) => {
+    const groups: { [key: string]: HistoryItem[] } = {};
     if (Array.isArray(items)) {
       items.forEach(item => {
         const dateStr = item?.date ? new Date(item.date).toLocaleDateString() : 'Unknown';
@@ -100,7 +101,7 @@ export const useHistory = (
       });
     }
     return groups;
-  };
+  }, []);
 
   const filteredHistory = history.filter(item => {
     const matchesSearch = (item.fileName || '').toLowerCase().includes(debouncedHistSearch.toLowerCase());
@@ -108,7 +109,7 @@ export const useHistory = (
     const matchesFavorite = showFavoritesOnly ? !!item?.isFavorite : true;
     const matchesSentiment = histSentimentFilter === 'All' ? true : item?.bgbRemark === histSentimentFilter;
     return matchesSearch && matchesDate && matchesFavorite && matchesSentiment;
-  });
+  }).slice(0, historyLimit);
 
   return {
     history,

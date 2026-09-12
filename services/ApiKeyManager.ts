@@ -1,7 +1,8 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { getApiUrl } from './api.ts';
-import { getAllFromStore, addToStore, deleteFromStore, STORES } from './db.ts';
+import { getAllFromStore, addToStore, deleteFromStore } from './db.ts';
+import { STORES } from '../constants/storeNames.ts';
 
 const ACTIVE_KEY_ID_STORAGE = 'manual_active_key_id';
 const ACTIVE_MODEL_STORAGE = 'manual_active_model';
@@ -67,7 +68,6 @@ export const getActiveProvider = async () => {
     }
   }
 
-  // @ts-ignore
   const env = import.meta.env;
   const envKey = env ? env.VITE_API_KEY_1 : undefined;
 
@@ -79,9 +79,7 @@ export const getActiveProvider = async () => {
     };
   }
 
-  // @ts-ignore
   if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-     // @ts-ignore
      return {
       key: process.env.API_KEY.trim(),
       model: currentModel,
@@ -160,59 +158,14 @@ export const incrementTotalCalls = async (source = 'Unknown', model = 'Unknown',
   count++;
   localStorage.setItem('simple_api_count', count.toString());
   logApiCall('success', model);
-
-  try {
-      const getRes = await fetch(getApiUrl('api.php?action=get&store=global_stats'));
-      if (getRes.ok) {
-          const data = await getRes.json();
-          // Safety check for array response
-          if (Array.isArray(data)) {
-              const serverRow = data.find((d: any) => d.id === 'global_stats_counter');
-              let serverCount = serverRow ? parseInt(serverRow.total_api_calls) : 0;
-              
-              serverCount++;
-              
-              await fetch(getApiUrl('api.php?action=save&store=global_stats'), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      id: 'global_stats_counter',
-                      total_api_calls: serverCount
-                  })
-              });
-              
-              return serverCount;
-          }
-      }
-  } catch (e) {
-      // Suppress connection errors as server might be offline
-      // console.warn("Stats sync skipped: Server unreachable"); 
-  }
-
   return count;
 };
 
 export const getTotalCalls = async () => {
-  try {
-      const response = await fetch(getApiUrl('api.php?action=get&store=global_stats'));
-      if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-              const serverRow = data.find((d: any) => d.id === 'global_stats_counter');
-              if (serverRow) {
-                  const count = parseInt(serverRow.total_api_calls);
-                  localStorage.setItem('simple_api_count', count.toString());
-                  return count;
-              }
-          }
-      }
-  } catch (e) {
-      // Fallback
-  }
   return parseInt(localStorage.getItem('simple_api_count') || '0');
 };
 
-export const markProviderAsLimited = async (key?: string, model?: string) => {};
+
 
 export const logApiCall = (status: 'success' | 'error', model: string = 'unknown') => {
   try {
@@ -228,7 +181,9 @@ export const logApiCall = (status: 'success' | 'error', model: string = 'unknown
     if (logs.length > 2000) logs.shift();
     localStorage.setItem('api_call_logs', JSON.stringify(logs));
     window.dispatchEvent(new CustomEvent('api-call-logged'));
-  } catch(e) {}
+  } catch (e) {
+    console.error("Failed to log API call:", e);
+  }
 };
 
 export const getApiCallLogs = async (): Promise<ApiCallLog[]> => {
