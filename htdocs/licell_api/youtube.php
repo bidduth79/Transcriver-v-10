@@ -41,6 +41,9 @@ try {
     $bitrate = isset($data['bitrate']) ? trim($data['bitrate']) : '16';
     $channels = isset($data['channels']) ? trim($data['channels']) : '1';
     $samplerate = isset($data['samplerate']) ? trim($data['samplerate']) : '16000';
+    $customDownloadPath = isset($data['customDownloadPath']) ? trim($data['customDownloadPath']) : '';
+    $startTime = isset($data['startTime']) ? trim($data['startTime']) : '';
+    $endTime = isset($data['endTime']) ? trim($data['endTime']) : '';
 
     if (empty($url)) {
         throw new Exception("URL is missing");
@@ -177,6 +180,30 @@ try {
             $formatArgs = '-f "140/bestaudio[ext=m4a]/bestaudio" --extract-audio --audio-format opus --audio-quality 16K --postprocessor-args "' . $audioPP . '"';
             $targetExt = "opus";
             break;
+        case 'best':
+            $formatArgs = '-f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"';
+            $targetExt = "mp4";
+            break;
+        case '1080':
+            $formatArgs = '-f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best"';
+            $targetExt = "mp4";
+            break;
+        case '720':
+            $formatArgs = '-f "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best"';
+            $targetExt = "mp4";
+            break;
+        case '480':
+            $formatArgs = '-f "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best"';
+            $targetExt = "mp4";
+            break;
+        case '360':
+            $formatArgs = '-f "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best"';
+            $targetExt = "mp4";
+            break;
+        case '240':
+            $formatArgs = '-f "bestvideo[height<=240][ext=mp4]+bestaudio[ext=m4a]/best[height<=240][ext=mp4]/best"';
+            $targetExt = "mp4";
+            break;
         case 'audio':
         default:
             // Force download of m4a (itag 140) to ensure FFmpeg re-encodes it to opus with our bitrate settings
@@ -185,11 +212,19 @@ try {
             break;
     }
 
+    $sectionArgs = "";
+    if (!empty($startTime) || !empty($endTime)) {
+        $s = !empty($startTime) ? $startTime : '0';
+        $e = !empty($endTime) ? $endTime : 'inf';
+        $sectionArgs = "--download-sections \"*{$s}-{$e}\"";
+    }
+
     // Performance Flags matched with Node.js script
     $cmd = sprintf(
-        '%s %s --no-playlist --no-check-certificate --no-update --no-progress --force-ipv4 --force-overwrite --no-continue %s -o "%s" "%s" 2>&1',
+        '%s %s %s --no-playlist --no-check-certificate --no-update --no-progress --force-ipv4 --force-overwrite --no-continue %s -o "%s" "%s" 2>&1',
         $yt_dlp_exe,
         $ffmpeg_arg,
+        $sectionArgs,
         $formatArgs,
         $outputTemplate,
         $url
@@ -239,17 +274,32 @@ try {
         $finalFileName = $titlePart;
     }
 
-    // --- SAVE TO D:\audio (Server Side) ---
-    // This mimics the Node.js behavior of saving directly to disk
+    // --- SAVE TO LOCAL FOLDER (Modern Approach) ---
+    // Instead of hardcoding D:\audio, we save it inside a 'downloads' folder in the project directory,
+    // unless the user provided a custom path.
     $serverSavedPath = "";
-    $destinationDir = "D:\\audio";
+    $destinationDir = 'C:\\Transcriver-v-10\\htdocs\\licell_api\\downloads';
     
+    if (!empty($customDownloadPath)) {
+        $destinationDir = rtrim($customDownloadPath, '\\/');
+    }
+    
+    // Create the downloads directory if it doesn't exist
+    if (!file_exists($destinationDir)) {
+        mkdir($destinationDir, 0777, true);
+    }
+    
+    $copyError = null;
     if (file_exists($destinationDir) && is_dir($destinationDir)) {
         $destinationPath = $destinationDir . DIRECTORY_SEPARATOR . $finalFileName;
         
         if (copy($expectedFile, $destinationPath)) {
             $serverSavedPath = $destinationPath;
+        } else {
+            $copyError = "Copy failed from $expectedFile to $destinationPath";
         }
+    } else {
+        $copyError = "Destination dir does not exist: $destinationDir";
     }
     // --------------------------------------
 
@@ -272,7 +322,10 @@ try {
         "size" => $fileSize,
         "base64" => $base64,
         "format" => $ext,
-        "serverPath" => $serverSavedPath // Inform frontend where it was saved on server
+        "server_path" => $serverSavedPath,
+        "debug_destinationDir" => $destinationDir,
+        "debug_copyError" => $copyError,
+        "debug_customDownloadPath" => $customDownloadPath
     ];
 
 } catch (Exception $e) {

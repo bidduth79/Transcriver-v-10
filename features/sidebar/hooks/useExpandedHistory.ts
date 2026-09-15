@@ -1,21 +1,19 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { getSensitiveKeywords } from '../../../utils/sensitiveKeywords';
 
-export const useExpandedHistory = (filteredHistory: any[]) => {
+export const useExpandedHistory = (
+  filteredHistory: any[],
+  historyLimit: number,
+  setHistoryLimit: React.Dispatch<React.SetStateAction<number>>
+) => {
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
-  const [historyLimit, setHistoryLimit] = useState(20);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const observer = useRef<IntersectionObserver | null>(null);
   const [sensitiveKeywords, setSensitiveKeywordsList] = useState<string[]>([]);
 
   useEffect(() => {
-    // Load initial keywords
     setSensitiveKeywordsList(getSensitiveKeywords());
-
-    // Listen for updates
-    const handleUpdate = () => {
-      setSensitiveKeywordsList(getSensitiveKeywords());
-    };
+    const handleUpdate = () => setSensitiveKeywordsList(getSensitiveKeywords());
     window.addEventListener('sensitive-keywords-updated', handleUpdate);
     return () => window.removeEventListener('sensitive-keywords-updated', handleUpdate);
   }, []);
@@ -25,29 +23,44 @@ export const useExpandedHistory = (filteredHistory: any[]) => {
     if (node) {
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
-          if (historyLimit >= filteredHistory.length) return;
+          if (filteredHistory.length < historyLimit) return;
           
           setIsHistoryLoading(true);
           setTimeout(() => {
-            setHistoryLimit((prev: number) => {
-              if (prev >= filteredHistory.length) return prev;
-              return prev + 20;
-            });
+            setHistoryLimit((prev: number) => prev + 20);
             setIsHistoryLoading(false);
           }, 800);
         }
       });
       observer.current.observe(node);
     }
-  }, [filteredHistory.length, historyLimit]);
+  }, [filteredHistory.length, historyLimit, setHistoryLimit]);
 
-  const displayedHistory = filteredHistory.slice(0, historyLimit);
+  const [sensitiveMatchesMap, setSensitiveMatchesMap] = useState<Map<string, string[]>>(new Map());
 
-  const getSensitiveMatches = (text: string) => {
-    if (!text) return [];
-    const lower = text.toLowerCase();
-    return sensitiveKeywords.filter(kw => kw && kw.trim().length > 0 && lower.includes(kw.toLowerCase())).sort((a, b) => b.length - a.length);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const map = new Map<string, string[]>();
+      const visibleHistory = filteredHistory.slice(0, historyLimit);
+      visibleHistory.forEach(item => {
+         if (item.transcript) {
+           const lower = item.transcript.toLowerCase();
+           const matches = sensitiveKeywords
+             .filter(kw => kw && kw.trim().length > 0 && lower.includes(kw.toLowerCase()))
+             .sort((a, b) => b.length - a.length);
+           map.set(item.id, matches);
+         } else {
+           map.set(item.id, []);
+         }
+      });
+      setSensitiveMatchesMap(map);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, [filteredHistory, historyLimit, sensitiveKeywords]);
+
+  const getSensitiveMatches = useCallback((id: string) => {
+    return sensitiveMatchesMap.get(id) || [];
+  }, [sensitiveMatchesMap]);
 
   const formatProcessingTime = (timeStr: string) => {
     if (!timeStr) return timeStr;
@@ -86,10 +99,8 @@ export const useExpandedHistory = (filteredHistory: any[]) => {
   return {
     hoveredCardId,
     setHoveredCardId,
-    historyLimit,
     isHistoryLoading,
     bottomRef,
-    displayedHistory,
     getSensitiveMatches,
     formatProcessingTime
   };

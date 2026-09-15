@@ -21,7 +21,10 @@ interface ToolsModalProps {
 export const ToolsModal: React.FC<ToolsModalProps> = ({ 
   activeTool, onClose, isMinimized, setIsMinimized, isDark, activeColors, appLang, addToast, onFileSelect
 }) => {
-  const [currentTab, setCurrentTab] = useState<string>('youtube');
+  const validTools = ['downloader', 'converter', 'video_cut', 'audio_cut'];
+  if (!activeTool || !validTools.includes(activeTool)) return null;
+
+  const [currentTab, setCurrentTab] = useState<string>('downloader');
   
   // Cutter State
   const [subMode, setSubMode] = useState<'cut' | 'join'>('cut');
@@ -32,8 +35,7 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
   const isResizing = useRef(false);
 
   const tabs = [
-    { id: 'youtube', label: appLang === 'bn' ? 'ইউটিউব' : 'YouTube', icon: <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/> },
-    { id: 'facebook', label: appLang === 'bn' ? 'ফেসবুক' : 'Facebook', icon: <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/> },
+    { id: 'downloader', label: appLang === 'bn' ? 'ডাউনলোডার' : 'Downloader', icon: <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/> },
     { id: 'converter', label: appLang === 'bn' ? 'কনভার্টার' : 'Converter', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /> },
     { id: 'video_cut', label: appLang === 'bn' ? 'ভিডিও টুলস' : 'Video Tools', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/> },
     { id: 'audio_cut', label: appLang === 'bn' ? 'অডিও টুলস' : 'Audio Tools', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/> }
@@ -85,7 +87,7 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
               addToast(appLang === 'bn' ? "ট্রান্সক্রিপশন শুরু হচ্ছে... (টুলস মিনিমাইজড)" : "Starting transcription... (Tools Minimized)", 'info');
           }
       } else if (mode === 'browser_download' || (!mode && fileName.startsWith('Cut_')) || (!mode && fileName.startsWith('Joined_'))) {
-          // Trigger browser download for Cut and Join operations (they don't save to D:\audio)
+          // Trigger browser download for Cut and Join operations (they don't save to the project downloads folder automatically)
           // Also allow explicit 'browser_download' mode
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -95,10 +97,10 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          addToast(appLang === 'bn' ? "ডাউনলোড শুরু হয়েছে (D:\\audio চেক করুন)" : "Download Started (Check D:\\audio)", "success");
+          addToast(appLang === 'bn' ? "ডাউনলোড শুরু হয়েছে (প্রজেক্ট ফোল্ডার চেক করুন)" : "Download Started (Check project downloads folder)", "success");
       } else {
-          // It's a YouTube download or Conversion, already saved to D:\audio by the server
-          addToast(appLang === 'bn' ? "D:\\audio ফোল্ডারে সেভ হয়েছে" : "Saved to D:\\audio", "success");
+          // It's a YouTube download or Conversion, already saved to the project downloads folder by the server
+          addToast(appLang === 'bn' ? "প্রজেক্টের downloads ফোল্ডারে সেভ হয়েছে" : "Saved to project downloads folder", "success");
       }
     } catch (err) {
       console.log('Save cancelled or failed', err);
@@ -175,7 +177,7 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all group cursor-pointer ${currentTab === tab.id ? `${activeColors.primary} text-white shadow-lg` : isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-200 text-slate-600 hover:text-slate-900'}`}
               >
                 <div className={`w-6 h-6 flex items-center justify-center ${currentTab === tab.id ? 'text-white' : isDark ? 'opacity-60 group-hover:opacity-100' : 'text-slate-500 group-hover:text-slate-900'}`}>
-                  <svg className="w-5 h-5" fill={tab.id === 'youtube' || tab.id === 'facebook' ? 'currentColor' : 'none'} stroke={tab.id === 'youtube' || tab.id === 'facebook' ? 'none' : 'currentColor'} viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill={tab.id === 'downloader' ? 'currentColor' : 'none'} stroke={tab.id === 'downloader' ? 'none' : 'currentColor'} viewBox="0 0 24 24">
                     {tab.icon}
                   </svg>
                 </div>
@@ -188,11 +190,11 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
           <div className="flex-1 p-8 md:p-12 overflow-y-auto custom-scrollbar relative">
             <div className={`absolute inset-0 opacity-[0.03] pointer-events-none ${activeColors.primary} mix-blend-overlay`}></div>
             
-            {(currentTab === 'youtube' || currentTab === 'facebook') && (
+            {currentTab === 'downloader' && (
               <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
                 <div className="text-center space-y-2">
                   <h3 className={`text-2xl font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    {currentTab === 'youtube' ? 'YouTube Downloader' : 'Facebook Downloader'}
+                    YouTube & Facebook Downloader
                   </h3>
                   <p className="text-xs font-bold opacity-50 uppercase tracking-widest">
                     {appLang === 'bn' ? 'ভিডিও বা অডিও ডাউনলোড করুন' : 'Download Video or Audio'}
@@ -204,9 +206,9 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
                   isDark={isDark}
                   activeColors={activeColors}
                   appLang={appLang}
-                  platform={currentTab as any}
+                  platform="youtube"
                   allowVideo={true}
-                  showFormats={true} // Explicitly show formats in ToolsModal
+                  showFormats={true} 
                 />
               </div>
             )}

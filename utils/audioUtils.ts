@@ -64,3 +64,28 @@ export const loadAudioFromStore = async (
     console.error("Failed to load audio for item", e);
   }
 };
+
+export const playSuccessSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const startTime = now + (i * 0.08);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.8);
+        osc.start(startTime);
+        osc.stop(startTime + 0.8);
+    });
+  } catch (e) {
+    console.error("Failed to play notification sound:", e);
+  }
+};

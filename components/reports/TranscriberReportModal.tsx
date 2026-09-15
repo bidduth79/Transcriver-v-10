@@ -1,236 +1,28 @@
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { getAllFromStore, STORES } from '../../services/db.ts';
+import React from 'react';
+import { useTranscriberReportLogic } from './hooks/useTranscriberReportLogic';
 
 export const TranscriberReportModal = ({ 
   isOpen, onClose, isDark, activeColors, appLang 
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  isDark?: boolean;
+  activeColors?: any;
+  appLang?: string;
 }) => {
-  const [history, setHistory] = useState([]);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [reportData, setReportData] = useState([]);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  
-  // Initialize dates to current month
-  useEffect(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setFromDate(firstDay.toISOString().split('T')[0]);
-    setToDate(lastDay.toISOString().split('T')[0]);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) {
-      loadHistory();
-    }
-    
-    const handleHistoryUpdate = () => {
-      if (isOpen) loadHistory();
-    };
-    window.addEventListener(`store-updated-studio_history`, handleHistoryUpdate);
-    return () => window.removeEventListener(`store-updated-studio_history`, handleHistoryUpdate);
-  }, [isOpen]);
-
-  const loadHistory = async () => {
-    const data: any = await getAllFromStore(STORES.HISTORY);
-    setHistory(data);
-  };
-
-  // Helper to convert time string (HH:MM:SS or MM:SS) to seconds
-  const parseDurationToSeconds = (dur) => {
-    if (!dur) return 0;
-    const parts = dur.split(':').map(Number);
-    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    if (parts.length === 2) return parts[0] * 60 + parts[1];
-    return 0;
-  };
-
-  // Helper to format seconds to "XX Hrs YY Min"
-  const formatSecondsToHrsMin = (totalSecs) => {
-    const hrs = Math.floor(totalSecs / 3600);
-    const mins = Math.floor((totalSecs % 3600) / 60);
-    return `${hrs.toString().padStart(2, '0')} Hrs ${mins.toString().padStart(2, '0')} Min`;
-  };
-
-  // Process Data based on filters
-  useEffect(() => {
-    if (!history.length) return;
-
-    const start = new Date(fromDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(toDate);
-    end.setHours(23, 59, 59, 999);
-
-    const filtered = history.filter(item => {
-      const itemDate = new Date(item.date);
-      return itemDate >= start && itemDate <= end;
-    });
-
-    // Group by Date + Type
-    const grouped = {};
-
-    filtered.forEach(item => {
-      const dateKey = new Date(item.date).toLocaleDateString('en-GB'); // DD/MM/YYYY
-      const isVideo = ['mp4', 'mkv', 'webm', 'avi', 'mov'].includes((item.extension || '').toLowerCase());
-      const fileType = isVideo ? 'Video' : 'Audio';
-      // Simple heuristic for method - usually File Upload unless we track source explicitly
-      const method = item.fileName.includes('http') ? 'Youtube Link' : 'File Upload'; 
-      
-      const key = `${dateKey}-${fileType}`;
-
-      if (!grouped[key]) {
-        grouped[key] = {
-          date: dateKey,
-          method: method,
-          fileType: fileType,
-          qty: 0,
-          durationSecs: 0
-        };
-      }
-
-      grouped[key].qty += 1;
-      grouped[key].durationSecs += parseDurationToSeconds(item.duration);
-    });
-
-    interface ReportRow {
-      date: string;
-      method: string;
-      fileType: string;
-      qty: number;
-      durationSecs: number;
-    }
-
-    const rows = (Object.values(grouped) as ReportRow[]).sort((a, b) => {
-        const dateA = a.date.split('/').reverse().join('-');
-        const dateB = b.date.split('/').reverse().join('-');
-        return dateA.localeCompare(dateB);
-    });
-
-    setReportData(rows);
-
-  }, [history, fromDate, toDate]);
-
-  const totalQty = reportData.reduce((acc, curr) => acc + curr.qty, 0);
-  const totalDurationSecs = reportData.reduce((acc, curr) => acc + curr.durationSecs, 0);
-
-  // Pagination Logic for Visual and PDF
-  const ROWS_FIRST_PAGE = 27;
-  const ROWS_OTHER_PAGES = 40;
-
-  const getPages = () => {
-    const pages = [];
-    let dataCopy = [...reportData];
-    
-    if (dataCopy.length === 0) {
-      return [[]];
-    }
-
-    pages.push(dataCopy.splice(0, ROWS_FIRST_PAGE));
-    
-    while(dataCopy.length > 0) {
-      pages.push(dataCopy.splice(0, ROWS_OTHER_PAGES));
-    }
-    return pages;
-  };
-
-  const pages = getPages();
-
-  const handleDownloadPDF = () => {
-    const element = document.getElementById('report-content');
-    if (!element) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('পপ-আপ ব্লক করা আছে। দয়া করে ব্রাউজারের পপ-আপ অ্যালাউ করুন।');
-      return;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Transcriber_Report_${fromDate}_to_${toDate}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
-            body {
-              margin: 0;
-              padding: 20px;
-              background-color: #52525b;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              font-family: 'Hind Siliguri', sans-serif;
-            }
-            @media print {
-              @page {
-                size: A4 portrait;
-                margin: 0;
-              }
-              body {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                background-color: #ffffff;
-                padding: 0;
-                display: block;
-              }
-              .page-break {
-                page-break-after: always !important;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div style="display: flex; flex-direction: column; gap: 2rem;">
-            ${element.innerHTML}
-          </div>
-          <script>
-            document.fonts.ready.then(() => {
-              setTimeout(() => {
-                window.print();
-              }, 500);
-            });
-            window.onafterprint = () => {
-              window.close();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-  };
-
-  const handleDownloadExcel = () => {
-    const escapeCSV = (str: any) => {
-      if (str === null || str === undefined) return '""';
-      const stringified = String(str);
-      if (stringified.includes(',') || stringified.includes('"') || stringified.includes('\n')) {
-        return `"${stringified.replace(/"/g, '""')}"`;
-      }
-      return stringified;
-    };
-
-    let csvContent = "\uFEFF"; // Add BOM for UTF-8 encoding (fixes Excel Bengali text issue)
-    csvContent += "Sl No,Transcriber Date,Using Method,File Type,Qty,Duration,Remarks\n";
-
-    reportData.forEach((row, index) => {
-        const dur = formatSecondsToHrsMin(row.durationSecs);
-        csvContent += `${index + 1},${escapeCSV(row.date)},${escapeCSV(row.method)},${escapeCSV(row.fileType)},${row.qty},${escapeCSV(dur)},""\n`;
-    });
-
-    csvContent += `,,,Total-,${totalQty},${escapeCSV(formatSecondsToHrsMin(totalDurationSecs))},""\n`;
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Report_${fromDate}_to_${toDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  const {
+    fromDate, setFromDate,
+    toDate, setToDate,
+    reportData,
+    totalQty,
+    totalDurationSecs,
+    pages,
+    formatSecondsToHrsMin,
+    handleDownloadPDF,
+    handleDownloadExcel,
+    ROWS_FIRST_PAGE,
+    ROWS_OTHER_PAGES
+  } = useTranscriberReportLogic(isOpen);
 
   if (!isOpen) return null;
 
@@ -286,11 +78,12 @@ export const TranscriberReportModal = ({
                         className={pageIndex < pages.length - 1 ? 'html2pdf__page-break' : ''}
                         style={{ 
                             width: '210mm', 
-                            height: '297mm', 
+                            minHeight: '297mm', 
                             padding: '48px', 
                             boxSizing: 'border-box', 
-                            position: 'relative', 
-                            overflow: 'hidden', 
+                            position: 'relative',
+                            display: 'flex',
+                            flexDirection: 'column',
                             flexShrink: 0,
                             pageBreakAfter: pageIndex < pages.length - 1 ? 'always' : 'auto',
                             fontFamily: "'Hind Siliguri', sans-serif", 
@@ -367,7 +160,7 @@ export const TranscriberReportModal = ({
                         </table>
 
                         {/* Page Footer */}
-                        <div style={{ position: 'absolute', bottom: '40px', left: '48px', right: '48px', display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', color: '#000000' }}>
+                        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', color: '#000000' }}>
                             <span>Page {pageIndex + 1} of {pages.length}</span>
                             <span>System Generated by OSINT</span>
                         </div>

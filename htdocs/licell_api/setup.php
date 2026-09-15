@@ -43,7 +43,11 @@ try {
             duration VARCHAR(50),
             extension VARCHAR(20),
             publishedDate VARCHAR(100),
-            channelName VARCHAR(255)
+            channelName VARCHAR(255),
+            isFavorite TINYINT(1) DEFAULT 0,
+            bgbRemark LONGTEXT,
+            summary LONGTEXT,
+            title VARCHAR(255)
         )",
         
         "studio_reports" => "CREATE TABLE IF NOT EXISTS studio_reports (
@@ -191,7 +195,11 @@ try {
                 'channelName' => 'VARCHAR(255)',
                 'size' => 'VARCHAR(50)',
                 'duration' => 'VARCHAR(50)',
-                'extension' => 'VARCHAR(20)'
+                'extension' => 'VARCHAR(20)',
+                'isFavorite' => 'TINYINT(1) DEFAULT 0',
+                'bgbRemark' => 'LONGTEXT',
+                'summary' => 'LONGTEXT',
+                'title' => 'VARCHAR(255)'
             ],
             'youtube_api_keys' => [
                 '`key`' => 'VARCHAR(255)',

@@ -12,12 +12,19 @@ export const ProcessingView = ({
     <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-6 overflow-hidden animate-in fade-in duration-500">
       
       {/* --- BACKGROUND IMAGE START --- */}
-      <img 
-          src={BACKGROUND_IMAGE_URL}
-          alt="Processing Background" 
-          className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none"
-      />
-      {/* Overlay to ensure text readability - Light glass effect */}
+      <div 
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ 
+          backgroundImage: `url('/background.jpg')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        {/* Fallback gradient behind the image — visible when image fails to load */}
+        <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900' : 'bg-gradient-to-br from-slate-100 via-indigo-50 to-white'}`}></div>
+      </div>
+      {/* Overlay to ensure text readability */}
       <div className={`absolute inset-0 backdrop-blur-md pointer-events-none ${isDark ? 'bg-slate-900/60' : 'bg-white/60'}`}></div>
       {/* --- BACKGROUND IMAGE END --- */}
 

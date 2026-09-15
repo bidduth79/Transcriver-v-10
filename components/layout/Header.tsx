@@ -18,6 +18,8 @@ interface HeaderProps {
   setActiveTool?: (tool: string) => void;
   setIsReportOpen?: (v: boolean) => void;
   setIsSettingsOpen?: (v: boolean) => void;
+  transcriptionMode: 'normal' | 'pro';
+  setTranscriptionMode: (mode: 'normal' | 'pro') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -25,7 +27,8 @@ export const Header: React.FC<HeaderProps> = ({
   isInformationOpen, setIsInformationOpen,
   isActivityLogOpen, setIsActivityLogOpen,
   isDark, setTheme,
-  appLang, setAppLang, activeColors, setActiveTool, setIsReportOpen, setIsSettingsOpen 
+  appLang, setAppLang, activeColors, setActiveTool, setIsReportOpen, setIsSettingsOpen,
+  transcriptionMode, setTranscriptionMode
 }) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
@@ -77,6 +80,22 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center space-x-2 md:space-x-3">
+        {/* Transcription Mode Toggle */}
+        <div className="hidden sm:flex bg-black/20 backdrop-blur-md rounded-xl p-1 border border-white/10">
+          <button
+            onClick={() => setTranscriptionMode('normal')}
+            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${transcriptionMode === 'normal' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+          >
+            {appLang === 'bn' ? 'নরমাল' : 'Normal'}
+          </button>
+          <button
+            onClick={() => setTranscriptionMode('pro')}
+            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${transcriptionMode === 'pro' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+          >
+            {appLang === 'bn' ? 'প্রো' : 'Pro'}
+          </button>
+        </div>
+
         {/* Mobile Menu Toggle Button */}
         <button 
           type="button"
@@ -126,17 +145,11 @@ export const Header: React.FC<HeaderProps> = ({
             {showToolsMenu && (
               <div className={`absolute top-full right-0 mt-2 w-56 border rounded-2xl shadow-2xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 bg-slate-900 border-white/10`}>
                 <div className="p-1 space-y-1">
-                  <button onClick={() => handleToolClick('youtube')} className={`w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl transition-all group text-white/90 hover:bg-white/10 hover:text-white`}>
+                  <button onClick={() => handleToolClick('downloader')} className={`w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl transition-all group text-white/90 hover:bg-white/10 hover:text-white`}>
                     <div className="w-6 h-6 bg-red-600/20 text-red-500 rounded-lg flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all">
                       <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-wide">{appLang === 'bn' ? 'ইউটিউব ডাউনলোড' : 'YouTube DL'}</span>
-                  </button>
-                  <button onClick={() => handleToolClick('facebook')} className={`w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl transition-all group text-white/90 hover:bg-white/10 hover:text-white`}>
-                    <div className="w-6 h-6 bg-blue-600/20 text-blue-500 rounded-lg flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-wide">{appLang === 'bn' ? 'ফেসবুক ডাউনলোড' : 'Facebook DL'}</span>
+                    <span className="text-[10px] font-black uppercase tracking-wide">{appLang === 'bn' ? 'ইউটিউব ও ফেসবুক' : 'YouTube & FB DL'}</span>
                   </button>
                   <button onClick={() => handleToolClick('converter')} className={`w-full flex items-center gap-3 px-4 py-3 text-left rounded-xl transition-all group text-white/90 hover:bg-white/10 hover:text-white`}>
                     <div className="w-6 h-6 bg-amber-500/20 text-amber-400 rounded-lg flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
@@ -230,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`p-2 md:p-2.5 rounded-xl transition-all border border-white/10 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white group cursor-pointer flex justify-center items-center`} 
               title={appLang === 'bn' ? 'সেটিংস' : 'Settings'}
             >
-              <svg className="w-5 h-5 md:w-6 h-6 transition-all duration-500 group-hover:scale-125 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 group-hover:scale-125 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>

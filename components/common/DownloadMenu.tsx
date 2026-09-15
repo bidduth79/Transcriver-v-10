@@ -18,150 +18,244 @@ export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const downloadFile = (content, ext) => {
-    const url = URL.createObjectURL(content);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${fileName.split('.')[0]}_transcript.${ext}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setIsOpen(false);
-    addToast(`${ext.toUpperCase()} ফাইল ডাউনলোড শুরু হয়েছে`, 'success');
+  const downloadFile = (content: any, ext: string) => {
+    try {
+      const url = URL.createObjectURL(content);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      let finalFileName = 'transcript';
+      if (fileName && typeof fileName === 'string') {
+        finalFileName = fileName.split('.')[0];
+      }
+      link.download = `${finalFileName}_transcript.${ext}`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setIsOpen(false);
+      addToast(`${ext.toUpperCase()} ফাইল ডাউনলোড শুরু হয়েছে`, 'success');
+    } catch (error: any) {
+      console.error('Download error:', error);
+      addToast(`ডাউনলোড ত্রুটি: ${error.message || 'Unknown error'}`, 'error');
+    }
   };
 
   const exportTxt = () => {
-    const blob = new Blob([transcript], { type: 'text/plain;charset=utf-8' });
-    downloadFile(blob, 'txt');
+    try {
+      const safeTranscript = transcript || '';
+      const blob = new Blob([safeTranscript], { type: 'text/plain;charset=utf-8' });
+      downloadFile(blob, 'txt');
+    } catch (error: any) {
+      console.error('TXT Export Error:', error);
+      addToast(`TXT এরর: ${error.message}`, 'error');
+    }
   };
 
   const exportWord = () => {
-    // Convert speaker tags for Word
-    let processedTranscript = transcript.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #4338ca;">$1</strong>');
-    let htmlContent = processedTranscript.replace(/\n/g, '<br>');
-    
-    // Add highlighting for Word
-    if (includeKeywords && sensitiveMatches && sensitiveMatches.length > 0) {
-      sensitiveMatches.forEach((match: string) => {
-         const regex = new RegExp(`(${match})`, 'gi');
-         htmlContent = htmlContent.replace(regex, `<span style="background-color: #ef4444; color: white; font-weight: bold;">$1</span>`);
-      });
-    }
+    try {
+      const safeTranscript = (typeof transcript === 'string' ? transcript : '') || '';
+      // Convert speaker tags for Word
+      let processedTranscript = safeTranscript.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #4338ca;">$1</strong>');
+      let htmlContent = processedTranscript.replace(/\n/g, '<br>');
+      
+      // Add highlighting for Word
+      if (includeKeywords && sensitiveMatches && Array.isArray(sensitiveMatches) && sensitiveMatches.length > 0) {
+        const validMatches = sensitiveMatches
+          .filter((m: string) => m && typeof m === 'string' && m.trim() !== '')
+          .map((m: string) => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        
+        if (validMatches.length > 0) {
+          const regex = new RegExp(`(${validMatches.join('|')})`, 'gi');
+          htmlContent = htmlContent.replace(regex, `<span style="background-color: #ef4444; color: white; font-weight: bold;">$1</span>`);
+        }
+      }
 
-    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Transcript</title><style>body { font-family: "Hind Siliguri", sans-serif; }</style></head><body>`;
-    const footer = "</body></html>";
-    const sourceHTML = header + htmlContent + footer;
-    const blob = new Blob(['\ufeff', sourceHTML], { type: 'application/msword' });
-    downloadFile(blob, 'doc');
+      const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Transcript</title><style>body { font-family: "Hind Siliguri", sans-serif; }</style></head><body>`;
+      const footer = "</body></html>";
+      const sourceHTML = header + htmlContent + footer;
+      const blob = new Blob(['\ufeff', sourceHTML], { type: 'application/msword' });
+      downloadFile(blob, 'doc');
+    } catch (error: any) {
+      console.error('Word Export Error:', error);
+      addToast(`Word এরর: ${error.message}`, 'error');
+    }
   };
 
   const exportPDF = () => {
-    setIsOpen(false);
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      addToast('পপ-আপ ব্লক করা আছে। দয়া করে পপ-আপ অ্যালাউ করুন।', 'error');
-      return;
-    }
-
-    const headerHtml = `
-      <div style="border-bottom: 2px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <h1 style="margin: 0; font-size: 24px; font-weight: 900; color: #4338ca;">LI CELL STUDIO</h1>
-          <p style="margin: 5px 0 0 0; font-size: 10px; font-weight: 900; color: #64748b; letter-spacing: 2px;">TRANSCRIPTION EXPORT ${searchTerm ? '(SEARCH HIGHLIGHTED)' : ''}</p>
-        </div>
-        <div style="text-align: right;">
-          <p style="margin: 0; font-size: 10px; font-weight: 700; color: #94a3b8;">DATE: ${new Date().toLocaleDateString()}</p>
-          <p style="margin: 5px 0 0 0; font-size: 10px; font-weight: 700; color: #94a3b8;">FILE: ${fileName}</p>
-        </div>
-      </div>
-    `;
-
-    const highlightText = (text: string) => {
-      let processed = text;
+    try {
+      setIsOpen(false);
       
-      // Search highlighting
-      if (searchTerm) {
-        const regex = new RegExp(`(${searchTerm})`, 'gi');
-        processed = processed.replace(regex, '<mark style="background-color: #f97316; color: white; padding: 0 2px; border-radius: 2px;">$1</mark>');
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        addToast('পপ-আপ ব্লক করা আছে। দয়া করে পপ-আপ অ্যালাউ করুন।', 'error');
+        return;
       }
 
-      // Sensitive keyword highlighting
-      if (includeKeywords && sensitiveMatches && sensitiveMatches.length > 0) {
-        sensitiveMatches.forEach((match: string) => {
-          const regex = new RegExp(`(${match})`, 'gi');
-          processed = processed.replace(regex, '<mark style="background-color: #ef4444; color: white; padding: 0 4px; border-radius: 4px; font-weight: bold;">$1</mark>');
-        });
+      let finalFileName = 'transcript';
+      if (fileName && typeof fileName === 'string') {
+        finalFileName = fileName.split('.')[0];
       }
 
-      return processed;
-    };
+      const headerHtml = `
+        <div style="border-bottom: 2px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h1 style="margin: 0; font-size: 24px; font-weight: 900; color: #4338ca;">LI CELL STUDIO</h1>
+            <p style="margin: 5px 0 0 0; font-size: 10px; font-weight: 900; color: #64748b; letter-spacing: 2px;">TRANSCRIPTION EXPORT ${searchTerm ? '(SEARCH HIGHLIGHTED)' : ''}</p>
+          </div>
+          <div style="text-align: right;">
+            <p style="margin: 0; font-size: 10px; font-weight: 700; color: #94a3b8;">DATE: ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 5px 0 0 0; font-size: 10px; font-weight: 700; color: #94a3b8;">FILE: ${finalFileName}</p>
+          </div>
+        </div>
+      `;
 
-    const contentHtml = transcript.split('\n').map(line => {
-      let processedLine = line;
-      // Always highlight speaker tags, regardless of position
-      processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #4338ca; font-weight: 700;">$1</strong>');
-      const finalLine = highlightText(processedLine);
-      return `<p style="margin-bottom: 15px; line-height: 1.6; font-size: 13px;">${finalLine}</p>`;
-    }).join('');
+      let searchRegex: RegExp | null = null;
+      if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
+        const escapedSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        searchRegex = new RegExp(`(${escapedSearch})`, 'gi');
+      }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${fileName.split('.')[0]}_transcript</title>
-          <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-          <style>
-            body { 
-              font-family: 'Hind Siliguri', 'Inter', sans-serif; 
-              padding: 40px; 
-              color: #1e293b; 
-              background-color: #ffffff;
-            }
-            @media print {
-              @page { margin: 20mm; }
+      let sensitiveRegex: RegExp | null = null;
+      if (includeKeywords && sensitiveMatches && Array.isArray(sensitiveMatches) && sensitiveMatches.length > 0) {
+        const validMatches = sensitiveMatches
+          .filter((m: string) => m && typeof m === 'string' && m.trim() !== '')
+          .map((m: string) => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        
+        if (validMatches.length > 0) {
+          sensitiveRegex = new RegExp(`(${validMatches.join('|')})`, 'gi');
+        }
+      }
+
+      const highlightText = (text: string) => {
+        if (typeof text !== 'string') return '';
+        let processed = text;
+        
+        if (searchRegex) {
+          processed = processed.replace(searchRegex, '<mark style="background-color: #f97316; color: white; padding: 0 2px; border-radius: 2px;">$1</mark>');
+        }
+
+        if (sensitiveRegex) {
+          processed = processed.replace(sensitiveRegex, '<mark style="background-color: #ef4444; color: white; padding: 0 4px; border-radius: 4px; font-weight: bold;">$1</mark>');
+        }
+
+        return processed;
+      };
+
+      const safeTranscript = (typeof transcript === 'string' ? transcript : '') || '';
+      const lines = safeTranscript.split('\n').filter((l: string) => l && typeof l === 'string');
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${finalFileName}_transcript</title>
+            <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+            <style>
               body { 
-                -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact; 
-                padding: 0;
+                font-family: 'Hind Siliguri', 'Inter', sans-serif; 
+                padding: 40px; 
+                color: #1e293b; 
+                background-color: #ffffff;
               }
-            }
-          </style>
-        </head>
-        <body>
-          ${headerHtml}
-          ${contentHtml}
-          <script>
-            document.fonts.ready.then(() => {
-              setTimeout(() => {
-                window.print();
-              }, 500);
-            });
-            window.onafterprint = () => {
-              window.close();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    addToast('PDF প্রিন্ট ডায়ালগ ওপেন হয়েছে', 'success');
+              @media print {
+                @page { margin: 20mm; }
+                body { 
+                  -webkit-print-color-adjust: exact; 
+                  print-color-adjust: exact; 
+                  padding: 0;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            ${headerHtml}
+            <div id="transcript-content">
+              <div id="loading" style="text-align: center; padding: 50px; color: #64748b;">
+                <h2>PDF প্রস্তুত করা হচ্ছে...</h2>
+                <p>দয়া করে অপেক্ষা করুন</p>
+              </div>
+            </div>
+            <script>
+              // Function will be injected below
+            </script>
+          </body>
+        </html>
+      `);
+      
+      const CHUNK_SIZE = 500;
+      let currentIndex = 0;
+      
+      const processChunk = () => {
+        if (!printWindow || printWindow.closed) return;
+        
+        const chunk = lines.slice(currentIndex, currentIndex + CHUNK_SIZE);
+        
+        if (chunk.length === 0) {
+          // Done processing
+          const loadingEl = printWindow.document.getElementById('loading');
+          if (loadingEl) loadingEl.remove();
+          
+          printWindow.document.close();
+          
+          printWindow.document.fonts.ready.then(() => {
+            setTimeout(() => {
+              printWindow.print();
+            }, 500);
+          });
+          
+          printWindow.onafterprint = () => {
+            printWindow.close();
+          };
+          return;
+        }
+        
+        const html = chunk.map((line: string) => {
+          let processedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #4338ca; font-weight: 700;">$1</strong>');
+          const finalLine = highlightText(processedLine);
+          return `<p style="margin-bottom: 15px; line-height: 1.6; font-size: 13px;">${finalLine}</p>`;
+        }).join('');
+        
+        const contentDiv = printWindow.document.getElementById('transcript-content');
+        if (contentDiv) {
+          const wrapper = printWindow.document.createElement('div');
+          wrapper.innerHTML = html;
+          contentDiv.appendChild(wrapper);
+        }
+        
+        currentIndex += CHUNK_SIZE;
+        // Yield to browser to prevent freezing
+        setTimeout(processChunk, 10);
+      };
+      
+      // Start chunk processing
+      processChunk();
+      
+      addToast('PDF প্রস্তুত করা হচ্ছে, দয়া করে অপেক্ষা করুন...', 'success');
+    } catch (error: any) {
+      console.error('PDF Export Error:', error);
+      addToast(`PDF এরর: ${error.message}`, 'error');
+    }
   };
 
   const exportSRT = () => {
-    let srtContent = "";
-    const lines = transcript.split('\n').filter(l => l.trim() !== "");
-    lines.forEach((line, index) => {
-      const timeMatch = line.match(/\[(\d{2}:\d{2})\]/);
-      const startTimeStr = timeMatch ? timeMatch[1] : "00:00";
-      srtContent += `${index + 1}\n`;
-      srtContent += `00:${startTimeStr}:00,000 --> 00:${startTimeStr}:05,000\n`;
-      srtContent += `${line.replace(/\*\*.*?\*\*:/, '').trim()}\n\n`;
-    });
-    const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
-    downloadFile(blob, 'srt');
+    try {
+      const safeTranscript = (typeof transcript === 'string' ? transcript : '') || '';
+      let srtContent = "";
+      const lines = safeTranscript.split('\n').filter((l: string) => l && typeof l === 'string' && l.trim() !== "");
+      lines.forEach((line: string, index: number) => {
+        const timeMatch = line.match(/\[(\d{2}:\d{2})\]/);
+        const startTimeStr = timeMatch ? timeMatch[1] : "00:00";
+        srtContent += `${index + 1}\n`;
+        srtContent += `00:${startTimeStr}:00,000 --> 00:${startTimeStr}:05,000\n`;
+        srtContent += `${line.replace(/\*\*.*?\*\*:/, '').trim()}\n\n`;
+      });
+      const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
+      downloadFile(blob, 'srt');
+    } catch (error: any) {
+      console.error('SRT Export Error:', error);
+      addToast(`SRT এরর: ${error.message}`, 'error');
+    }
   };
 
   return (

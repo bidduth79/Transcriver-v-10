@@ -7,7 +7,17 @@ export const useHistory = (
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void,
   onHistoryItemDeleted: (id: string) => void
 ) => {
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('historyCache');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isLoadingHistory, setIsLoadingHistory] = useState(() => {
+    return !sessionStorage.getItem('historyCache');
+  });
   const [historyLimit, setHistoryLimit] = useState(20);
   const [isHistoryFullscreen, setIsHistoryFullscreen] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
@@ -25,14 +35,22 @@ export const useHistory = (
   }, [histSearch]);
 
   const loadHistory = useCallback(async () => {
+    setIsLoadingHistory(prev => history.length === 0 ? true : prev);
     try {
       const allHistory = (await getAllFromStore(STORES.HISTORY)) as HistoryItem[];
       const sorted = allHistory.sort((a: HistoryItem, b: HistoryItem) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setHistory(sorted);
+      try {
+        sessionStorage.setItem('historyCache', JSON.stringify(sorted.slice(0, 50)));
+      } catch (e) {
+        // Ignore quota exceeded
+      }
     } catch (e) {
       console.error("Failed to load history", e);
+    } finally {
+      setIsLoadingHistory(false);
     }
-  }, []);
+  }, [history.length]);
 
   const handleDeleteHistoryItem = async (id: string) => {
     await deleteFromStore(STORES.HISTORY, id);
@@ -109,7 +127,7 @@ export const useHistory = (
     const matchesFavorite = showFavoritesOnly ? !!item?.isFavorite : true;
     const matchesSentiment = histSentimentFilter === 'All' ? true : item?.bgbRemark === histSentimentFilter;
     return matchesSearch && matchesDate && matchesFavorite && matchesSentiment;
-  }).slice(0, historyLimit);
+  });
 
   return {
     history,
@@ -126,6 +144,7 @@ export const useHistory = (
     backupHistory,
     restoreHistory,
     groupHistory,
-    filteredHistory
+    filteredHistory,
+    isLoadingHistory
   };
 };

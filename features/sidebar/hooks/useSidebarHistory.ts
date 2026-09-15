@@ -9,12 +9,11 @@ export const useSidebarHistory = (history: any[], historyLimit: number, setHisto
     if (node) {
       observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting) {
-          if (historyLimit >= history.length) return;
+          if (history.length < historyLimit) return;
           
           setIsHistoryLoading(true);
           setTimeout(() => {
             setHistoryLimit((prev: number) => {
-              if (prev >= history.length) return prev;
               return prev + 20;
             });
             setIsHistoryLoading(false);

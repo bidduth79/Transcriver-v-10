@@ -12,6 +12,7 @@ export const FileInfoSection = ({
   fileMeta,
   activeColors,
   audioRef,
+  handleTimeUpdate,
   skipTime,
   playbackRate,
   changePlaybackRate,
@@ -40,7 +41,7 @@ export const FileInfoSection = ({
         
         {/* Audio Player with Seek & Speed Control */}
         <div className="space-y-2">
-            <audio ref={audioRef} src={fileUrl} controls className="w-full h-10 bg-slate-50 rounded-lg p-1" />
+            <audio ref={audioRef} onTimeUpdate={handleTimeUpdate} src={fileUrl} controls className="w-full h-10 bg-slate-50 rounded-lg p-1" />
             
             <div className="flex items-center justify-between gap-2 px-1">
                 {/* SEEK BUTTONS */}

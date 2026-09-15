@@ -40,12 +40,29 @@ try {
     // --- SAVE DATA (INSERT / UPDATE) ---
     if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = file_get_contents('php://input');
+        file_put_contents(__DIR__ . '/request_log.txt', date('H:i:s') . " - POST size: " . strlen($input) . "\n", FILE_APPEND);
         $data = json_decode($input, true);
 
         if (!$data || !$tableName) {
             throw new Exception("Invalid data or store");
         }
-
+        
+        // Fetch valid columns from the table to prevent SQL errors on unknown keys
+        $stmtCols = $conn->query("SHOW COLUMNS FROM `$tableName`");
+        $validColumns = $stmtCols->fetchAll(PDO::FETCH_COLUMN);
+        
+        $filteredData = [];
+        foreach ($data as $key => $value) {
+            if (in_array($key, $validColumns)) {
+                $filteredData[$key] = $value;
+            }
+        }
+        
+        if (empty($filteredData) || !isset($filteredData['id'])) {
+            throw new Exception("No valid columns or missing ID");
+        }
+        
+        $data = $filteredData;
         $columns = array_keys($data);
         $placeholders = array_map(function($key) { return ":$key"; }, $columns);
         $backticked_columns = array_map(function($key) { return "`$key`"; }, $columns);
@@ -84,7 +101,21 @@ try {
             exit();
         }
         
-        $stmt = $conn->prepare("SELECT * FROM $tableName");
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : null;
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        
+        $query = "SELECT * FROM `$tableName`";
+        
+        if ($limit > 0) {
+            $offset = ($page - 1) * $limit;
+            $query .= " ORDER BY id DESC LIMIT :limit OFFSET :offset";
+            $stmt = $conn->prepare($query);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        } else {
+            $stmt = $conn->prepare($query);
+        }
+        
         $stmt->execute();
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
@@ -124,6 +155,14 @@ try {
 } catch (Throwable $e) {
     http_response_code(500);
     $errorMsg = $e->getMessage();
+    
+    // Log error for debugging
+    $logData = date('Y-m-d H:i:s') . " - Error: " . $errorMsg . " in " . $e->getFile() . ":" . $e->getLine() . "\n";
+    if (isset($input)) {
+        $logData .= "Input Payload: " . substr($input, 0, 500) . "\n";
+    }
+    file_put_contents(__DIR__ . '/error_log.txt', $logData, FILE_APPEND);
+
     $json = json_encode(["error" => $errorMsg, "line" => $e->getLine(), "file" => $e->getFile()]);
     if ($json === false) {
         $json = json_encode(["error" => "An error occurred, but the message could not be JSON encoded: " . json_last_error_msg()]);

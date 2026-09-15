@@ -13,24 +13,25 @@ interface ExpandedHistoryProps {
   histSentimentFilter: string;
   setHistSentimentFilter: (v: string) => void;
   filteredHistory: any[];
+  historyLimit: number;
+  setHistoryLimit: React.Dispatch<React.SetStateAction<number>>;
   loadHistoryItem: (item: any, searchKeyword?: string) => void;
   activeColors: any;
 }
 
 export const ExpandedHistory: React.FC<ExpandedHistoryProps> = ({
   t, isDark, setIsHistoryFullscreen, histSearch, setHistSearch,
-  histDateFilter, setHistDateFilter, histSentimentFilter, setHistSentimentFilter, filteredHistory, loadHistoryItem, activeColors
+  histDateFilter, setHistDateFilter, histSentimentFilter, setHistSentimentFilter, filteredHistory,
+  historyLimit, setHistoryLimit, loadHistoryItem, activeColors
 }) => {
   const {
     hoveredCardId,
     setHoveredCardId,
-    historyLimit,
     isHistoryLoading,
     bottomRef,
-    displayedHistory,
     getSensitiveMatches,
     formatProcessingTime
-  } = useExpandedHistory(filteredHistory);
+  } = useExpandedHistory(filteredHistory, historyLimit, setHistoryLimit);
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/40 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
@@ -113,9 +114,9 @@ export const ExpandedHistory: React.FC<ExpandedHistoryProps> = ({
              </div>
            ) : (
              <>
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-                {displayedHistory.map((item, idx) => {
-                  const sensitiveMatches = getSensitiveMatches(item.transcript);
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8 relative z-10">
+                {filteredHistory.slice(0, historyLimit).map((item, idx) => {
+                  const sensitiveMatches = getSensitiveMatches(item.id);
                   const isSensitive = sensitiveMatches && sensitiveMatches.length > 0;
                 
                 const cardBgClass = isSensitive 
@@ -211,7 +212,8 @@ export const ExpandedHistory: React.FC<ExpandedHistoryProps> = ({
                              const textContent = item.transcript || "No transcript content...";
                              if (!isSensitive) return textContent;
 
-                             const regex = new RegExp(`(${sensitiveMatches.join('|')})`, 'gi');
+                             const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                             const regex = new RegExp(`(${sensitiveMatches.map(escapeRegExp).join('|')})`, 'gi');
                              return textContent.split(regex).map((part: string, i: number) => 
                                sensitiveMatches.some((match: string) => part.toLowerCase() === match.toLowerCase()) ? (
                                  <mark 

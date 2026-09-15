@@ -1,17 +1,10 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-    getAllApiKeys, 
-    addUserApiKey, 
-    deleteApiKey, 
-    setActiveApiKey, 
-    getActiveKeyId, 
-    UserApiKey 
-} from '../../services/ApiKeyManager';
-import { syncAllLocalToCloud, restoreAllCloudToLocal, checkCloudConnection } from '../../services/api';
-import { STORES } from '../../services/db';
-import { getSensitiveKeywords, setSensitiveKeywords } from '../../utils/sensitiveKeywords';
+import React, { useState, useRef, useEffect } from 'react';
 import { QuotaMonitor } from './QuotaMonitor';
+import { SettingsApiKeys } from './settings/SettingsApiKeys';
+import { SettingsKeywords } from './settings/SettingsKeywords';
+import { SettingsSync } from './settings/SettingsSync';
+import { SettingsSystem } from './settings/SettingsSystem';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -23,25 +16,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, isDark, activeColors, appLang, addToast }) => {
-  const [activeTab, setActiveTab] = useState<'keys' | 'quota' | 'sync' | 'keywords'>('keys');
-  
-  // API Key Management State
-  const [keyList, setKeyList] = useState<UserApiKey[]>([]);
-  const [activeKeyId, setActiveKeyId] = useState<string | null>(null);
-  const [newKeyInput, setNewKeyInput] = useState('');
-  const [newKeyLabel, setNewKeyLabel] = useState('');
-  const [isAddingKey, setIsAddingKey] = useState(false);
-
-  // Sync State
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(0);
-  const [syncStatus, setSyncStatus] = useState('Idle');
-  const [syncMode, setSyncMode] = useState<'up' | 'down'>('up');
-  const [cloudConnection, setCloudConnection] = useState<string>('Checking...');
-
-  // Keywords State
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [newKeywordInput, setNewKeywordInput] = useState('');
+  const [activeTab, setActiveTab] = useState<'keys' | 'quota' | 'sync' | 'keywords' | 'system'>('keys');
   
   // Window State
   const [isMinimized, setIsMinimized] = useState(false);
@@ -49,117 +24,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   const [size, setSize] = useState({ width: 700, height: 600 });
   const isResizing = useRef(false);
 
-  const refreshKeys = async () => {
-      try {
-          const keys = await getAllApiKeys();
-          // Safety check: ensure keys have required properties
-          const validKeys = (keys || []).filter(k => k && k.id);
-          setKeyList(validKeys); 
-          setActiveKeyId(getActiveKeyId());
-      } catch (e) {
-          console.error("Failed to refresh keys", e);
-          setKeyList([]);
-      }
-  };
-
   useEffect(() => {
-    let mounted = true;
     if (isOpen) {
-        refreshKeys();
-        setKeywords(getSensitiveKeywords());
         setIsMinimized(false); 
-        checkCloudConnection().then(res => {
-            if(mounted) {
-                setCloudConnection(res.status === 'online' ? 'Online & Authenticated' : res.message);
-            }
-        }).catch(() => {
-            if(mounted) setCloudConnection('Connection Check Failed');
-        });
-
-        const handleKeysUpdate = () => {
-            if (mounted) refreshKeys();
-        };
-        window.addEventListener(`store-updated-${STORES.API_KEYS}`, handleKeysUpdate);
-
-        return () => { 
-            mounted = false; 
-            window.removeEventListener(`store-updated-${STORES.API_KEYS}`, handleKeysUpdate);
-        };
     }
-    return () => { mounted = false; };
-  }, [isOpen, activeTab]);
-
-  const handleAddKey = async () => {
-      if (!newKeyInput.trim()) {
-          addToast(appLang === 'bn' ? 'দয়া করে এপিআই কি দিন' : 'Please enter API Key', 'error');
-          return;
-      }
-      setIsAddingKey(true);
-      try {
-          await addUserApiKey(newKeyInput, newKeyLabel || `Key ${keyList.length + 1}`);
-          setNewKeyInput('');
-          setNewKeyLabel('');
-          await refreshKeys();
-          addToast(appLang === 'bn' ? 'কি যুক্ত করা হয়েছে' : 'Key added successfully', 'success');
-      } catch (e) {
-          console.error(e);
-          addToast('Failed to add key', 'error');
-      } finally {
-          setIsAddingKey(false);
-      }
-  };
-
-  const handleSelectKey = (id: string) => {
-      setActiveApiKey(id);
-      setActiveKeyId(id);
-      addToast(appLang === 'bn' ? 'এপিআই কি সিলেক্ট করা হয়েছে' : 'API Key Selected', 'success');
-  };
-
-  const handleDeleteKey = async (id: string) => {
-      if (confirm(appLang === 'bn' ? 'আপনি কি নিশ্চিত?' : 'Are you sure?')) {
-          await deleteApiKey(id);
-          await refreshKeys();
-          addToast(appLang === 'bn' ? 'কি ডিলিট করা হয়েছে' : 'Key deleted', 'warning');
-      }
-  };
-
-  // Keywords Logic
-  const handleAddKeyword = () => {
-    if (!newKeywordInput.trim()) return;
-    const inputs = newKeywordInput.split(',').map(s => s.trim()).filter(s => s);
-    const newKeywords = Array.from(new Set([...keywords, ...inputs]));
-    setKeywords(newKeywords);
-    setSensitiveKeywords(newKeywords);
-    setNewKeywordInput('');
-    addToast(appLang === 'bn' ? 'শব্দ যুক্ত করা হয়েছে' : 'Keywords added', 'success');
-  };
-
-  const handleRemoveKeyword = (kwToRemove: string) => {
-    const newKeywords = keywords.filter(kw => kw !== kwToRemove);
-    setKeywords(newKeywords);
-    setSensitiveKeywords(newKeywords);
-    addToast(appLang === 'bn' ? 'শব্দ মুছে ফেলা হয়েছে' : 'Keyword removed', 'warning');
-  };
-
-  // Sync Logic
-  const handleStartSync = async () => {
-      if (isSyncing) return;
-      setIsSyncing(true);
-      setSyncStatus('Starting Master Sync...');
-      
-      try {
-          await syncAllLocalToCloud((msg, pct) => {
-              setSyncStatus(msg);
-              setSyncProgress(pct);
-          });
-          addToast(appLang === 'bn' ? 'সকল ডাটাবেইজ সিনক্রোনাইজ সম্পন্ন হয়েছে' : 'All Databases Synced Successfully', 'success');
-      } catch (e: any) {
-          setSyncStatus('Failed: ' + e.message);
-          addToast(appLang === 'bn' ? 'অপারেশন ব্যর্থ হয়েছে' : 'Operation Failed', 'error');
-      } finally {
-          setIsSyncing(false);
-      }
-  };
+  }, [isOpen]);
 
   // --- Resizing Logic ---
   const startResizing = (e: React.MouseEvent) => {
@@ -261,87 +130,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
             >
                 {appLang === 'bn' ? 'ক্লাউড সিঙ্ক' : 'CLOUD SYNC'}
             </button>
+            <button 
+                onClick={() => setActiveTab('system')}
+                className={`pb-4 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'system' ? `border-b-4 ${activeColors.border} ${activeColors.text}` : 'border-transparent opacity-40 hover:opacity-100'}`}
+            >
+                {appLang === 'bn' ? 'সিস্টেম' : 'SYSTEM'}
+            </button>
         </div>
 
         <div className="flex-1 p-10 overflow-hidden flex flex-col">
           {activeTab === 'keys' && (
-            <div className="flex flex-col h-full space-y-6">
-                
-                {/* Input Area */}
-                <div className={`p-6 rounded-3xl border flex flex-col gap-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                    <h3 className="text-xs font-black uppercase tracking-widest opacity-60">{appLang === 'bn' ? 'নতুন কি যুক্ত করুন' : 'Add New Key'}</h3>
-                    <div className="flex gap-4">
-                        <input 
-                            type="text" 
-                            placeholder="Enter Gemini API Key (starts with AIza...)" 
-                            value={newKeyInput}
-                            onChange={e => setNewKeyInput(e.target.value)}
-                            className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border outline-none focus:ring-2 ${isDark ? 'bg-slate-800 border-slate-600 text-white focus:ring-indigo-500/50' : 'bg-white border-slate-300 text-slate-800 focus:ring-indigo-500/20'}`}
-                        />
-                        <input 
-                            type="text" 
-                            placeholder="Label (Optional)" 
-                            value={newKeyLabel}
-                            onChange={e => setNewKeyLabel(e.target.value)}
-                            className={`w-40 px-4 py-3 rounded-xl text-sm font-bold border outline-none focus:ring-2 ${isDark ? 'bg-slate-800 border-slate-600 text-white focus:ring-indigo-500/50' : 'bg-white border-slate-300 text-slate-800 focus:ring-indigo-500/20'}`}
-                        />
-                        <button 
-                            onClick={handleAddKey}
-                            disabled={isAddingKey || !newKeyInput}
-                            className={`px-6 py-3 ${activeColors.primary} text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50`}
-                        >
-                            {isAddingKey ? 'ADDING...' : (appLang === 'bn' ? 'যুক্ত করুন' : 'ADD')}
-                        </button>
-                    </div>
-                </div>
-
-                {/* List Area */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                    {keyList.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center opacity-30">
-                            <p className="text-sm font-black uppercase tracking-widest">No Keys Found</p>
-                            <p className="text-xs mt-2">Add a key above to start</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {keyList.map((k) => (
-                                <div 
-                                    key={k.id} 
-                                    className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
-                                        activeKeyId === k.id 
-                                        ? (isDark ? 'bg-indigo-900/30 border-indigo-500/50' : 'bg-indigo-50 border-indigo-200') 
-                                        : (isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-200 hover:bg-slate-50')
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-4 min-w-0">
-                                        <div 
-                                            onClick={() => handleSelectKey(k.id)}
-                                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all ${activeKeyId === k.id ? 'border-indigo-500 bg-indigo-500' : 'border-slate-400 opacity-50 hover:opacity-100'}`}
-                                        >
-                                            {activeKeyId === k.id && <div className="w-2.5 h-2.5 bg-white rounded-full"></div>}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className={`text-xs font-black uppercase tracking-wider truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{k.label}</p>
-                                                {activeKeyId === k.id && <span className="text-[9px] font-black bg-indigo-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">Active</span>}
-                                            </div>
-                                            {/* Safety Check: ensure key exists before slicing */}
-                                            <p className="text-[10px] font-mono opacity-40 mt-1 truncate">****{(k.key || '').slice(-8)}</p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => handleDeleteKey(k.id)}
-                                        className="p-2.5 text-slate-400 hover:bg-red-500 hover:text-white rounded-xl transition-all"
-                                        title="Delete Key"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
+            <SettingsApiKeys isDark={isDark} activeColors={activeColors} appLang={appLang} addToast={addToast} />
           )}
           
           {activeTab === 'quota' && (
@@ -353,107 +152,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
           )}
 
           {activeTab === 'keywords' && (
-            <div className="flex flex-col h-full space-y-6">
-                {/* Input Area */}
-                <div className={`p-6 rounded-3xl border flex flex-col gap-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                    <h3 className="text-xs font-black uppercase tracking-widest opacity-60">
-                        {appLang === 'bn' ? 'নতুন সংবেদনশীল শব্দ যুক্ত করুন (কমা দিয়ে আলাদা করুন)' : 'Add New Sensitive Keywords (comma separated)'}
-                    </h3>
-                    <div className="flex gap-4">
-                        <input 
-                            type="text" 
-                            placeholder={appLang === 'bn' ? "শব্দ লিখুন..." : "Enter keywords..."}
-                            value={newKeywordInput}
-                            onChange={e => setNewKeywordInput(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' ? handleAddKeyword() : null}
-                            className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border outline-none focus:ring-2 ${isDark ? 'bg-slate-800 border-slate-600 text-white focus:ring-indigo-500/50' : 'bg-white border-slate-300 text-slate-800 focus:ring-indigo-500/20'}`}
-                        />
-                        <button 
-                            onClick={handleAddKeyword}
-                            disabled={!newKeywordInput.trim()}
-                            className={`px-6 py-3 ${activeColors.primary} text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50`}
-                        >
-                            {appLang === 'bn' ? 'যুক্ত করুন' : 'ADD'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* List Area */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                    {keywords.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center opacity-30">
-                            <p className="text-sm font-black uppercase tracking-widest">{appLang === 'bn' ? 'কোনো শব্দ পাওয়া যায়নি' : 'No Keywords Found'}</p>
-                        </div>
-                    ) : (
-                        <div className="flex flex-wrap gap-3">
-                            {keywords.map((kw, index) => (
-                                <div 
-                                    key={`kw-${index}`} 
-                                    className={`px-4 py-2 rounded-xl border flex items-center gap-3 transition-all ${
-                                        isDark ? 'bg-slate-900 border-slate-700 hover:border-red-500/50' : 'bg-white border-slate-200 hover:border-red-500/50'
-                                    }`}
-                                >
-                                    <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{kw}</span>
-                                    <button 
-                                        onClick={() => handleRemoveKeyword(kw)}
-                                        className="text-slate-400 hover:text-red-500 transition-all rounded-full p-1"
-                                        title={appLang === 'bn' ? 'মুছে ফেলুন' : 'Remove Keyword'}
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
+            <SettingsKeywords isDark={isDark} activeColors={activeColors} appLang={appLang} addToast={addToast} />
           )}
 
           {activeTab === 'sync' && (
-              <div className="flex flex-col h-full space-y-6">
-                  <div className={`p-6 rounded-3xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                      <h3 className="text-sm font-black uppercase tracking-widest mb-4 opacity-60">Firebase Connection Status</h3>
-                      <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${cloudConnection.includes('Online') ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-red-500 shadow-lg shadow-red-500/50'}`}></div>
-                          <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{cloudConnection}</span>
-                      </div>
-                  </div>
+            <SettingsSync isDark={isDark} activeColors={activeColors} appLang={appLang} addToast={addToast} />
+          )}
 
-                  <div className="flex-1 flex flex-col justify-center items-center text-center space-y-8">
-                      <div className={`w-28 h-28 rounded-full flex items-center justify-center ${isSyncing ? 'bg-indigo-600 animate-pulse' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                          {isSyncing ? (
-                              <svg className="w-12 h-12 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                          ) : (
-                              <svg className="w-12 h-12 text-slate-400 dark:text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                          )}
-                      </div>
-                      
-                      {isSyncing ? (
-                          <div className="w-full max-w-sm space-y-2">
-                              <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                  <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${syncProgress}%` }}></div>
-                              </div>
-                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">{syncStatus}</p>
-                          </div>
-                      ) : (
-                          <div className="flex justify-center w-full max-w-lg mx-auto">
-                              {/* Master Sync Button */}
-                              <button 
-                                  onClick={() => handleStartSync()}
-                                  className={`p-6 rounded-3xl border flex flex-col items-center gap-3 w-full transition-all hover:scale-[1.02] active:scale-95 group ${isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-white hover:shadow-xl'}`}
-                              >
-                                  <div className={`w-12 h-12 rounded-full ${activeColors.primary} text-white flex items-center justify-center shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12`}>
-                                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                  </div>
-                                  <div className="text-center">
-                                      <span className="block text-sm font-black uppercase tracking-widest mb-1">{appLang === 'bn' ? 'অটো সিনক্রোনাইজ' : 'AUTO SYNCHRONIZE'}</span>
-                                      <span className="block text-[10px] opacity-60 font-bold max-w-[250px] mx-auto">Local XAMPP &harr; IndexedDB &harr; Firebase &harr; Supabase</span>
-                                  </div>
-                              </button>
-                          </div>
-                      )}
-                  </div>
-              </div>
+          {activeTab === 'system' && (
+            <SettingsSystem isDark={isDark} activeColors={activeColors} appLang={appLang} addToast={addToast} />
           )}
         </div>
 

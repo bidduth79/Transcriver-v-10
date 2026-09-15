@@ -2,7 +2,7 @@
 import { fetchDataDual, saveDataDual, deleteDataDual } from './api.ts';
 
 export const DB_NAME = 'LiCellStudioDB_v5_Final'; 
-export const DB_VERSION = 1;
+export const DB_VERSION = 3;
 
 import { STORES, FIREBASE_SYNCED_STORES, ALL_STORES } from '../constants/storeNames';
 export { STORES, FIREBASE_SYNCED_STORES, ALL_STORES };
@@ -53,7 +53,7 @@ export const addToStore = async (storeName: string, data: any) => {
   if (storeName !== STORES.YOUTUBE_AUDIO) {
     saveDataDual(storeName, data).catch(err => {
       // Hide 'Failed to fetch' errors as they are expected in preview mode (CORS/Mixed Content)
-      if (!err.message?.includes('Failed to fetch')) {
+      if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
         console.error(`Background save failed for ${storeName}:`, err);
         window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা সেভ করতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
       } else {
@@ -84,7 +84,7 @@ export const getFromStore = async (storeName: string, id: string) => {
         }
      }).catch(err => {
        // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
-       if (!err.message?.includes('Failed to fetch')) {
+       if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
          console.error(`Background fetch failed for ${storeName}:`, err);
          window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা ফেচ করতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
        } else {
@@ -96,7 +96,6 @@ export const getFromStore = async (storeName: string, id: string) => {
   return localItem;
 };
 
-const syncStatus = new Map<string, number>();
 const SYNC_COOLDOWN = 1000 * 60 * 5; // 5 minutes
 
 export const getAllFromStore = async (storeName: string, forceSync = false) => {
@@ -110,10 +109,10 @@ export const getAllFromStore = async (storeName: string, forceSync = false) => {
   });
 
   if (storeName !== STORES.YOUTUBE_AUDIO) {
-    const lastSync = syncStatus.get(storeName) || 0;
+    const lastSync = parseInt(localStorage.getItem(`sync_${storeName}`) || '0', 10);
     const now = Date.now();
     if (forceSync || now - lastSync > SYNC_COOLDOWN) {
-      syncStatus.set(storeName, now);
+      localStorage.setItem(`sync_${storeName}`, now.toString());
       fetchDataDual(storeName).then(async (cloudData) => {
         if (cloudData && Array.isArray(cloudData)) {
           const db2 = await initDB();
@@ -125,9 +124,9 @@ export const getAllFromStore = async (storeName: string, forceSync = false) => {
           };
         }
       }).catch(err => {
-         syncStatus.set(storeName, 0);
+         localStorage.removeItem(`sync_${storeName}`);
          // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
-         if (!err.message?.includes('Failed to fetch')) {
+         if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
            console.error(`Background sync failed for ${storeName}:`, err);
            window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা সিঙ্ক করতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
          } else {
@@ -153,7 +152,7 @@ export const deleteFromStore = async (storeName: string, id: string) => {
   if (storeName !== STORES.YOUTUBE_AUDIO) {
     deleteDataDual(storeName, id).catch(err => {
       // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
-      if (!err.message?.includes('Failed to fetch')) {
+      if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
         console.error(`Background delete failed for ${storeName}:`, err);
         window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা মুছতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
       } else {

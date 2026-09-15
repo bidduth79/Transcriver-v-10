@@ -1,18 +1,9 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { addToStore, getAllFromStore, deleteFromStore, STORES } from '../../services/db';
-import { getActiveProvider, incrementTotalCalls } from '../../services/ApiKeyManager';
-import { logSystemActivity } from '../../services/SystemLogger';
+import React, { useState, useEffect, useRef } from 'react';
+import { useReportAnalysis } from './hooks/useReportAnalysis';
+import { useReportActions, ReportItem } from './hooks/useReportActions';
 import { copyToClipboard } from '../../utils/clipboard';
 
-interface ReportItem {
-  id: string;
-  date: string;
-  searchTerm: string;
-  fileName: string;
-  content: string;
-}
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -31,11 +22,17 @@ interface ReportModalProps {
 export const ReportModal: React.FC<ReportModalProps> = ({ 
   isOpen, onClose, transcript, activeColors, isDark, appLang, fileMeta, searchTerm, addToast, onModelUpdate, setIsAiLoading
 }) => {
-  const [report, setReport] = useState('');
-  const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'generate' | 'history'>('generate');
-  const [reportHistory, setReportHistory] = useState<ReportItem[]>([]);
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
+
+  const { 
+    report, 
+    loading, 
+    reportHistory, 
+    loadReportsFromDB, 
+    generateReport: generateReportAction, 
+    handleDeleteReport: deleteReportAction 
+  } = useReportActions(searchTerm, fileMeta, appLang, addToast, onModelUpdate, setIsAiLoading);
 
   // Resizing states
   const [size, setSize] = useState({ width: 900, height: 750 });
@@ -69,95 +66,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   // ... (Existing Logic: analysisData, loadReportsFromDB, generateReport etc. - Unchanged)
-  const analysisData = useMemo<{ ranges: string[], snippets: string[], matchCount: number } | null>(() => {
-    if (!searchTerm || !transcript) return null;
-    const lowerSearch = searchTerm.toLowerCase().trim();
-    if (lowerSearch === "") return null;
-
-    const lines = transcript.split('\n');
-    const turns: { startTime: string, text: string }[] = [];
-    let currentTurnText = "";
-    let lastKnownTime = "00:00";
-
-    lines.forEach((line) => {
-      const timeMatch = line.match(/\[(\d{1,2}:\d{2})\]/);
-      if (timeMatch) {
-        if (currentTurnText.trim()) turns.push({ startTime: lastKnownTime, text: currentTurnText });
-        lastKnownTime = timeMatch[1];
-        currentTurnText = line; 
-      } else {
-        currentTurnText += " " + line;
-      }
-    });
-    if (currentTurnText.trim()) turns.push({ startTime: lastKnownTime, text: currentTurnText });
-
-    const ranges: string[] = [];
-    const snippets: string[] = [];
-    
-    turns.forEach((turn, index) => {
-      const cleanText = turn.text
-        .replace(/\*\*.*?\*\*/g, '')
-        .replace(/\[\d{1,2}:\d{2}\]/g, '')
-        .replace(/Speaker \d+\s*:/gi, '')
-        .replace(/স্পিকার \d+\s*:/gi, '')
-        .replace(/<[^>]*>/g, '')
-        .trim();
-
-      const turnContent = cleanText;
-      const lowerTurnContent = turnContent.toLowerCase();
-      const startTime = turn.startTime;
-      const endTime = turns[index + 1]?.startTime || fileMeta?.duration || "...";
-      
-      let pos = lowerTurnContent.indexOf(lowerSearch);
-      while (pos !== -1) {
-        const beforeMatch = turnContent.substring(0, pos);
-        const lastPunc = Math.max(
-            beforeMatch.lastIndexOf('।'),
-            beforeMatch.lastIndexOf('.'),
-            beforeMatch.lastIndexOf('?'),
-            beforeMatch.lastIndexOf('!'),
-            beforeMatch.lastIndexOf('|')
-        );
-        const idealStartIdx = lastPunc === -1 ? 0 : lastPunc + 1;
-
-        const afterMatch = turnContent.substring(pos + lowerSearch.length);
-        const puncs = ['।', '.', '?', '!', '|'];
-        let firstPunc = -1;
-        for (const p of puncs) {
-            const idx = afterMatch.indexOf(p);
-            if (idx !== -1) {
-                if (firstPunc === -1 || idx < firstPunc) {
-                    firstPunc = idx;
-                }
-            }
-        }
-        const idealEndIdx = firstPunc === -1 ? turnContent.length : pos + lowerSearch.length + firstPunc + 1;
-        const startIdx = Math.max(idealStartIdx, pos - 150);
-        const endIdx = Math.min(idealEndIdx, pos + lowerSearch.length + 150);
-
-        let snip = turnContent.substring(startIdx, endIdx).trim();
-        if (startIdx > idealStartIdx) snip = "..." + snip;
-        if (endIdx < idealEndIdx) snip = snip + "...";
-
-        if (snip && !snippets.includes(snip)) {
-          snippets.push(snip);
-          ranges.push(`${startTime}-${endTime}`);
-        }
-        pos = lowerTurnContent.indexOf(lowerSearch, pos + lowerSearch.length);
-      }
-    });
-
-    return { ranges, snippets, matchCount: snippets.length };
-  }, [transcript, searchTerm, fileMeta]);
-
-  const loadReportsFromDB = async () => {
-    try {
-      const data: any = await getAllFromStore(STORES.REPORTS);
-      setReportHistory(data);
-    } catch (err) {
-      console.error("Failed to load reports:", err);
-    }
-  };
+  const analysisData = useReportAnalysis(transcript, searchTerm, fileMeta);
 
   useEffect(() => {
     if (isOpen) {
@@ -175,93 +84,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     };
     window.addEventListener(`store-updated-studio_reports`, handleReportUpdate);
     return () => window.removeEventListener(`store-updated-studio_reports`, handleReportUpdate);
-  }, [isOpen, analysisData?.matchCount]);
+  }, [isOpen, analysisData?.matchCount, loadReportsFromDB]);
 
-  const generateReport = async () => {
-    const data = analysisData;
-    if (!data || data.matchCount === 0 || loading) return;
-    setLoading(true);
-    if (setIsAiLoading) setIsAiLoading(true);
-    setReport('');
-
-    const executeAI = async (): Promise<string | undefined> => {
-      const provider = await getActiveProvider();
-      if (!provider) {
-          throw new Error("No Active API Key Selected.");
-      }
-
-      const ai = new GoogleGenAI({ apiKey: provider.key });
-      const prompt = `Analyze these snippets about "${searchTerm}".
-      Task:
-      1. Provide a brief Bengali summary (strictly under 5 words, e.g., "রাজনৈতিক আলোচনা" or "অর্থনৈতিক বিষয়").
-      2. Provide a sentiment: "ইতিবাচক", "নেতিবাচক", or "নিউট্রাল".
-      
-      Output exactly this format:
-      SUMMARY: [Summary]
-      SENTIMENT: [Result]
-      
-      Snippets: ${data.snippets.slice(0, 4).join(' | ')}`;
-
-      const response: GenerateContentResponse = await ai.models.generateContent({
-        model: provider.model,
-        contents: prompt
-      });
-      await incrementTotalCalls('রিপোর্ট জেনারেশন', provider.model, provider.source);
-      if (onModelUpdate) onModelUpdate();
-      return response.text;
-    };
-
-    try {
-      const aiText = await executeAI() || "";
-      const summaryMatch = aiText.match(/SUMMARY:\s*(.*)/i);
-      const sentimentMatch = aiText.match(/SENTIMENT:\s*(.*)/i);
-      
-      const summaryText = summaryMatch ? summaryMatch[1].trim() : "আলোচিত বিষয়বস্তু";
-      const sentiment = sentimentMatch ? sentimentMatch[1].trim() : "নিউট্রাল";
-      
-      const timeRangeStr = data.ranges.length > 1 
-        ? `${data.ranges[0]} থেকে ${data.ranges[data.ranges.length - 1]}`
-        : data.ranges[0];
-
-      const today = new Date().toLocaleDateString('bn-BD');
-      let finalReport = `শ্রদ্ধেয় জেনারেল\nআসসালামু আলাইকুম স‍্যার,\n\nতারিখ: ${today}\n\n১। উক্ত ভিডিওর দৈর্ঘ্য ${fileMeta.duration || '00:00'}। ভিডিওর ${timeRangeStr} সময়কালে ${summaryText} ${searchTerm}কে নিয়ে ${sentiment} মন্তব্য পরিলক্ষিত হয়েছে।\n\n`;
-      
-      data.snippets.forEach((snip, idx) => {
-        finalReport += `মন্তব্য-${idx + 1}: ${snip}\n\n`;
-      });
-      
-      finalReport += `আপনার সদয় অবগতির জন‍্য প্রেরণ করা হলো।\n\nশ্রদ্ধান্তে`;
-      setReport(finalReport);
-      
-      const newItem: ReportItem = {
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
-        searchTerm,
-        fileName: fileMeta.name,
-        content: finalReport
-      };
-      await addToStore(STORES.REPORTS, newItem);
-      await loadReportsFromDB();
-      
-      // Log Success
-      logSystemActivity('REPORT', 'SUCCESS', 'Report Generated', `Term: ${searchTerm}, File: ${fileMeta.name}`);
-      
-      addToast(appLang === 'bn' ? "রিপোর্ট তৈরি হয়েছে" : "Report generated", 'success');
-    } catch (err: any) {
-      console.error(err);
-      
-      // Log Error
-      logSystemActivity('REPORT', 'ERROR', 'Report Generation Failed', `Error: ${err.message}`);
-      
-      const errorMsg = err.message?.includes('API Key') 
-        ? (appLang === 'bn' ? 'API Key সিলেক্ট করুন' : 'Select API Key') 
-        : (appLang === 'bn' ? "রিপোর্ট তৈরিতে সমস্যা হয়েছে" : "Failed to generate report");
-
-      addToast(errorMsg, 'error');
-    } finally {
-      setLoading(false);
-      if (setIsAiLoading) setIsAiLoading(false);
-    }
+  const generateReport = () => {
+    generateReportAction(analysisData);
   };
 
   const handleCopy = async () => {
@@ -295,11 +121,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const handleDeleteReport = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    await deleteFromStore(STORES.REPORTS, id);
-    await loadReportsFromDB();
-    if (selectedReport?.id === id) setSelectedReport(null);
-    logSystemActivity('REPORT', 'WARNING', 'Report Deleted', `ID: ${id}`);
-    addToast(appLang === 'bn' ? "রিপোর্ট ডিলিট করা হয়েছে" : "Report deleted", 'warning');
+    deleteReportAction(id, selectedReport, setSelectedReport);
   };
 
   if (!isOpen) return null;

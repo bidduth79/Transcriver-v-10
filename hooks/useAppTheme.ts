@@ -5,6 +5,7 @@ export const useAppTheme = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem('app-theme') || 'default');
   const [appLang, setAppLang] = useState<'bn' | 'en'>(() => (localStorage.getItem('app-lang') as 'bn' | 'en') || 'bn');
   const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem('app-font-size') || '16'));
+  const [transcriptionMode, setTranscriptionMode] = useState<'normal' | 'pro'>(() => (localStorage.getItem('app-transcription-mode') as 'normal' | 'pro') || 'pro');
 
   useEffect(() => {
     localStorage.setItem('app-theme', theme);
@@ -17,6 +18,10 @@ export const useAppTheme = () => {
   useEffect(() => {
     localStorage.setItem('app-font-size', fontSize.toString());
   }, [fontSize]);
+
+  useEffect(() => {
+    localStorage.setItem('app-transcription-mode', transcriptionMode);
+  }, [transcriptionMode]);
 
   const isDark = theme === 'soft-dark';
   const t = translations[appLang];
@@ -55,6 +60,8 @@ export const useAppTheme = () => {
     textColor,
     cardBg,
     cardBorder,
-    subTextColor
+    subTextColor,
+    transcriptionMode,
+    setTranscriptionMode
   };
 };

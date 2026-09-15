@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -9,12 +9,29 @@ interface SuccessModalProps {
 }
 
 export const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, elapsedSeconds, appLang }) => {
-  if (!isOpen) return null;
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+    } else {
+      setIsVisible(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen || !isVisible) return null;
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleClose = () => {
+    setIsVisible(false); // Hide immediately
+    setTimeout(() => {
+      onClose(); // Trigger parent re-render on next tick
+    }, 10);
   };
 
   return (
@@ -50,7 +67,7 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, ela
 
         {/* Button */}
         <button 
-            onClick={onClose}
+            onClick={handleClose}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/20 transition-all active:scale-95 text-sm uppercase tracking-widest cursor-pointer"
         >
             {appLang === 'bn' ? 'ঠিক আছে' : 'OKAY'}

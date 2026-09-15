@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 export const SidebarHistory = ({
   t,
   history,
+  fullHistory,
   setIsHistoryFullscreen,
   groupedHistory: initialGroupedHistory,
   cardBg,
@@ -20,14 +21,15 @@ export const SidebarHistory = ({
   isHistoryLoading,
   historyLimit,
   setHistoryLimit,
-  scrollContainerRef,
+  scrollContainerEl,
   showFavoritesOnly,
   setShowFavoritesOnly,
   toggleFavorite,
   backupHistory,
   restoreHistory,
   histSentimentFilter,
-  setHistSentimentFilter
+  setHistSentimentFilter,
+  totalHistoryCount
 }: any) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -82,7 +84,7 @@ export const SidebarHistory = ({
     // Group the filtered items
     const groups: any = {};
     filtered.forEach((item: any) => {
-      const d = new Date(item.date).toLocaleDateString();
+      const d = new Date(item.date).toLocaleDateString('en-US');
       if (!groups[d]) groups[d] = [];
       groups[d].push(item);
     });
@@ -103,18 +105,18 @@ export const SidebarHistory = ({
 
   const rowVirtualizer = useVirtualizer({
     count: flatItems.length,
-    getScrollElement: () => scrollContainerRef?.current,
+    getScrollElement: () => scrollContainerEl,
     estimateSize: (index) => flatItems[index].type === 'header' ? 50 : 120,
     overscan: 10,
   });
 
   const availableDateStrings = useMemo(() => {
     const dates = new Set<string>();
-    (history || []).forEach((item: any) => {
-      dates.add(new Date(item.date).toLocaleDateString());
+    (fullHistory || history || []).forEach((item: any) => {
+      dates.add(new Date(item.date).toLocaleDateString('en-US'));
     });
     return dates;
-  }, [history]);
+  }, [fullHistory, history]);
 
   const calendarDays = useMemo(() => {
     const year = viewDate.getFullYear();
@@ -151,7 +153,7 @@ export const SidebarHistory = ({
           <div className="transition-all duration-500 flex-1"></div>
 
           <div className="flex items-center gap-1 shrink-0 z-10 transition-transform duration-500">
-            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full bg-white/10 text-white/60 border border-white/5 shrink-0 hidden sm:inline-block mr-1`}>{(history?.length || 0)}</span>
+            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full bg-white/10 text-white/60 border border-white/5 shrink-0 hidden sm:inline-block mr-1`}>{totalHistoryCount !== undefined ? totalHistoryCount : (history?.length || 0)}</span>
           
             <div className="static flex gap-1">
             <div className="static">
@@ -201,8 +203,8 @@ export const SidebarHistory = ({
                   {/* Days Grid */}
                   <div className="grid grid-cols-7 gap-1 gap-y-1.5 text-center">
                     {calendarDays.map((calDay, i) => {
-                      const isTodayStr = new Date().toLocaleDateString();
-                      const calDayStr = calDay.date.toLocaleDateString();
+                      const isTodayStr = new Date().toLocaleDateString('en-US');
+                      const calDayStr = calDay.date.toLocaleDateString('en-US');
                       const hasHistory = availableDateStrings.has(calDayStr);
                       const isToday = calDayStr === isTodayStr;
                       
@@ -435,6 +437,9 @@ export const SidebarHistory = ({
               </div>
           </div>
         )}
+        <div ref={bottomRef} className="h-10 mt-2 flex items-center justify-center">
+            {isHistoryLoading && <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>}
+        </div>
       </div>
     </div>
   );

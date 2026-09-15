@@ -68,7 +68,18 @@ export const useTranscriptScroll = (
       const activeEl = document.getElementById('active-transcript-segment');
       if (activeEl) {
         setProgrammaticScroll();
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const container = scrollContainerRef.current;
+        if (container) {
+          const containerRect = container.getBoundingClientRect();
+          const activeRect = activeEl.getBoundingClientRect();
+          // Calculate how far the active element is from the top of the container's scrollable area
+          const relativeTop = activeRect.top - containerRect.top + container.scrollTop;
+          
+          container.scrollTo({
+            top: relativeTop - containerRect.height / 2 + activeRect.height / 2,
+            behavior: 'smooth'
+          });
+        }
       }
     }
   }, [Math.floor(audioCurrentTime), isSynced, status, isKaraokeEnabled, transcript, isUserScrolling]);
@@ -91,11 +102,17 @@ export const useTranscriptScroll = (
       const element = document.getElementById(activeId);
       if (element) {
         setProgrammaticScroll();
-        element.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'center'
-        });
+        const container = scrollContainerRef.current;
+        if (container) {
+          const containerRect = container.getBoundingClientRect();
+          const activeRect = element.getBoundingClientRect();
+          const relativeTop = activeRect.top - containerRect.top + container.scrollTop;
+          
+          container.scrollTo({
+            top: relativeTop - containerRect.height / 2 + activeRect.height / 2,
+            behavior: 'smooth'
+          });
+        }
       }
     }
   }, [currentMatchIndex, matchCount, searchTerm]);
@@ -123,49 +140,71 @@ export const useTranscriptSync = (
     return fileMeta?.name === activeTranscriptSourceMeta?.name;
   }, [fileUrl, transcript, activeTranscriptSourceMeta, fileMeta]);
 
-  const [isKaraokeEnabled, setIsKaraokeEnabled] = useState(isSynced && status === 'completed');
+  const [isKaraokeEnabled, setIsKaraokeEnabled] = useState(false);
 
   useEffect(() => {
     if (status === 'processing') {
       setIsKaraokeEnabled(false);
-    } else if (isSynced && status === 'completed') {
-      setIsKaraokeEnabled(true);
     }
   }, [isSynced, status]);
 
   const transcriptSegments = useMemo(() => {
     if (!transcript || !isSynced) return [];
 
-    const toSeconds = (h: string, m: string, s: string) => {
+    const toSeconds = (h: string | undefined, m: string, s: string) => {
       const hours = h ? parseInt(h) : 0;
       const minutes = parseInt(m);
       const seconds = parseInt(s);
       return hours * 3600 + minutes * 60 + seconds;
     };
 
-    const parts = transcript.split(/((?:[\[\(]|\*\*|__)?\s*(?:(?:\d{1,2}\s*:\s*)?\d{1,2}\s*:\s*\d{2})\s*(?:[\]\)]|\*\*|__)?)/g); 
+    const parts = transcript.split(/(?:\[|\b)((?:\d{1,2}:)?\d{1,2}:\d{2})(?:\]|\b)/);
     const finalSegments: any[] = [];
-    
+    let lastTime = 0;
+
+    if (parts[0] && parts[0].trim()) {
+      finalSegments.push({
+         start: 0,
+         end: Infinity,
+         text: parts[0].trim(),
+         originalText: parts[0]
+      });
+    }
+
     for (let i = 1; i < parts.length; i += 2) {
-      const timeMatch = parts[i].match(/(?:(\d{1,2})\s*:\s*)?(\d{1,2})\s*:\s*(\d{2})/);
-      if (timeMatch) {
-        const time = toSeconds(timeMatch[1], timeMatch[2], timeMatch[3]);
-        const textContent = parts[i+1] || "";
-        
-        if (finalSegments.length > 0) {
-          finalSegments[finalSegments.length - 1].end = time;
-        }
-        
-        if (textContent.trim()) {
-          finalSegments.push({
-            start: time,
-            end: time + 10,
-            text: textContent,
-            originalText: parts[i] + textContent
-          });
+      const timeStr = parts[i];
+      const textStr = parts[i + 1] || "";
+
+      let time = lastTime;
+      if (timeStr) {
+        const timeMatch = timeStr.match(/(?:(\d{1,2}):)?(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+          time = toSeconds(timeMatch[1], timeMatch[2], timeMatch[3]);
+          lastTime = time;
         }
       }
+
+      if (textStr.trim()) {
+        finalSegments.push({
+           start: time,
+           end: Infinity,
+           text: textStr.trim(),
+           originalText: textStr
+        });
+      }
     }
+
+    for (let i = 0; i < finalSegments.length; i++) {
+        let nextTime = Infinity;
+        for (let j = i + 1; j < finalSegments.length; j++) {
+            if (finalSegments[j].start > finalSegments[i].start) {
+                nextTime = finalSegments[j].start;
+                break;
+            }
+        }
+        finalSegments[i].end = nextTime;
+    }
+    
     return finalSegments;
   }, [transcript, isSynced]);
 

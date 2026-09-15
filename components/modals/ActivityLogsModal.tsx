@@ -44,14 +44,17 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
     try {
       const data = (await getAllFromStore(STORES.SYSTEM_ACTIVITY_LOGS)) as SystemLogItem[];
       if (!Array.isArray(data)) return;
+      
+      const validData = data.filter(item => item != null);
+
       // Sort Newest First
-      data.sort((a: any, b: any) => {
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
+      validData.sort((a: any, b: any) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
       });
-      setLogs(data);
-      setFilteredLogs(data);
+      setLogs(validData);
+      setFilteredLogs(validData);
     } catch (error) {
       console.error("Failed to load activity logs:", error);
     }
@@ -217,8 +220,10 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
                         <p className="text-xl font-black uppercase tracking-widest">NO LOGS FOUND</p>
                     </div>
                 ) : (
-                    filteredLogs.map(log => (
-                        <div key={log.id} className={`p-5 rounded-2xl border transition-all hover:bg-black/5 flex items-start gap-5 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+                    filteredLogs.map(log => {
+                        if (!log) return null;
+                        return (
+                        <div key={log.id || Math.random().toString()} className={`p-5 rounded-2xl border transition-all hover:bg-black/5 flex items-start gap-5 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
                             <div className="flex flex-col items-center gap-2 pt-1 shrink-0 w-24">
                                 <span className="text-[10px] font-mono font-bold opacity-50">{safeFormatDate(log.timestamp).date}</span>
                                 <span className="text-xs font-mono font-black">{safeFormatDate(log.timestamp).time}</span>
@@ -231,11 +236,14 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
                                 </div>
                                 <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{log.message}</p>
                                 {log.details && (
-                                    <p className={`text-xs mt-2 font-mono p-2 rounded ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-black/5 text-slate-500'}`}>{log.details}</p>
+                                    <p className={`text-xs mt-2 font-mono p-2 rounded ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-black/5 text-slate-500'}`}>
+                                        {typeof log.details === 'object' ? JSON.stringify(log.details, null, 2) : log.details}
+                                    </p>
                                 )}
                             </div>
                         </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
         </div>

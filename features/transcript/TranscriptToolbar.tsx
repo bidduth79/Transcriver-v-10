@@ -27,7 +27,6 @@ export const TranscriptToolbar = ({
   setFontSize,
   transformTranscript,
   transformingType,
-  downloadText,
   setIsAnalysisOpen,
   transcript,
   fileMeta,

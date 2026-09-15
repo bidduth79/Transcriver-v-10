@@ -116,9 +116,14 @@ try {
          throw new Exception("Conversion Error: " . implode("\n", array_slice($output, -5)));
     }
 
-    // --- SAVE TO D:\audio (Server Side) ---
+    // --- SAVE TO LOCAL FOLDER (Modern Approach) ---
     $serverSavedPath = "";
-    $destinationDir = "D:\\audio";
+    $destinationDir = __DIR__ . DIRECTORY_SEPARATOR . 'downloads';
+    
+    // Create the downloads directory if it doesn't exist
+    if (!file_exists($destinationDir)) {
+        mkdir($destinationDir, 0777, true);
+    }
     
     if (file_exists($destinationDir) && is_dir($destinationDir)) {
         $finalFileName = date('Y-m-d_H-i-s') . "_Converted_" . pathinfo($originalName, PATHINFO_FILENAME) . "." . $targetFormat;

@@ -44,6 +44,7 @@ export interface ApiCallLog {
   model: string;
   status: 'success' | 'error';
   latency?: number;
+  tokens?: number;
 }
 
 export const getActiveProvider = async () => {
@@ -61,6 +62,10 @@ export const getActiveProvider = async () => {
               model: currentModel, 
               source: selectedKey.label || 'Manual Selection'
             };
+          } else {
+            // Key not found in DB, clean up localStorage
+            localStorage.removeItem(ACTIVE_KEY_ID_STORAGE);
+            window.dispatchEvent(new CustomEvent('active-api-key-changed'));
           }
       }
     } catch (e) {
@@ -153,11 +158,11 @@ export const getActiveKeyId = () => {
   return localStorage.getItem(ACTIVE_KEY_ID_STORAGE);
 };
 
-export const incrementTotalCalls = async (source = 'Unknown', model = 'Unknown', keySource = 'Unknown') => {
+export const incrementTotalCalls = async (source = 'Unknown', model = 'Unknown', keySource = 'Unknown', tokens = 0) => {
   let count = parseInt(localStorage.getItem('simple_api_count') || '0');
   count++;
   localStorage.setItem('simple_api_count', count.toString());
-  logApiCall('success', model);
+  logApiCall('success', model, tokens);
   return count;
 };
 
@@ -167,7 +172,7 @@ export const getTotalCalls = async () => {
 
 
 
-export const logApiCall = (status: 'success' | 'error', model: string = 'unknown') => {
+export const logApiCall = (status: 'success' | 'error', model: string = 'unknown', tokens: number = 0) => {
   try {
     const logsStr = localStorage.getItem('api_call_logs');
     const logs = logsStr ? JSON.parse(logsStr) : [];
@@ -175,7 +180,8 @@ export const logApiCall = (status: 'success' | 'error', model: string = 'unknown
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
       model,
-      status
+      status,
+      tokens
     });
     // keep only last 2000
     if (logs.length > 2000) logs.shift();

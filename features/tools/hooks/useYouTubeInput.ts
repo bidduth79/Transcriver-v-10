@@ -7,11 +7,32 @@ export const useYouTubeInput = (
   showFormats: boolean
 ) => {
   const [url, setUrl] = useState('');
+  
+  // New States
+  const [downloadMode, setDownloadMode] = useState<'single' | 'bulk'>('single');
+  const [mediaType, setMediaType] = useState<'audio' | 'video'>('audio');
+  
+  // Audio Options
+  const [bitrate, setBitrate] = useState('24');
+  const [channels, setChannels] = useState('1');
+  const [samplerate, setSamplerate] = useState('16000');
+  
+  // Video Options
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  
+  // Bulk Queue
+  const [bulkUrls, setBulkUrls] = useState('');
+  const [bulkQueue, setBulkQueue] = useState<{url: string, status: 'pending'|'downloading'|'success'|'failed', error: string, filename: string, timeTaken?: string}[]>([]);
+  const [activeItemIndex, setActiveItemIndex] = useState<number>(-1);
+  const [activeItemStartTime, setActiveItemStartTime] = useState<number | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [loadingMode, setLoadingMode] = useState<'download' | 'transcribe' | null>(null);
   const [error, setError] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [totalTimeTaken, setTotalTimeTaken] = useState<string | null>(null);
+  
   const [quality, setQuality] = useState(() => {
     return localStorage.getItem('youtubeInputQuality') || 'audio';
   }); 
@@ -60,31 +81,19 @@ export const useYouTubeInput = (
         timerRef.current = null;
     }
   };
-
-  const processYouTube = async (mode: 'download' | 'transcribe') => {
-    const isValid = url.includes('youtube.com') || url.includes('youtu.be') || url.includes('facebook.com') || url.includes('fb.watch');
-    
-    if (!url || !isValid) {
-      setError(appLang === 'bn' ? 'সঠিক ইউটিউব বা ফেসবুক লিংক দিন' : 'Invalid Video URL');
-      return;
-    }
-
-    setLoading(true);
-    const startTime = Date.now();
-    
-    setLoadingMode(mode);
-    setError('');
-    setTotalTimeTaken(null);
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    try {
+  
+  const callApi = async (targetUrl: string, controller: AbortController) => {
       const apiUrl = getApiUrl('youtube.php');
       
       const bodyPayload = { 
-          url, 
-          quality: showFormats ? quality : 'audio' 
+          url: targetUrl, 
+          quality: showFormats ? quality : 'audio',
+          customDownloadPath: localStorage.getItem('customDownloadPath') || '',
+          bitrate,
+          channels,
+          samplerate,
+          startTime,
+          endTime
       };
 
       const response = await fetch(apiUrl, {
@@ -110,7 +119,7 @@ export const useYouTubeInput = (
       if (result.error) {
         const errStr = result.error.toLowerCase();
         if (errStr.includes('bot') || errStr.includes('sign in') || errStr.includes('429') || errStr.includes('too many requests')) {
-          throw new Error(appLang === 'bn' ? "ইউটিউব থেকে ব্লক করা হয়েছে (Rate Limit)। কিছুক্ষণ পর আবার চেষ্টা করুন।" : "Rate limit exceeded. Please try again later.");
+          throw new Error(appLang === 'bn' ? "ইউটিউব থেকে ব্লক করা হয়েছে (Rate Limit)।" : "Rate limit exceeded.");
         }
         throw new Error(result.error);
       }
@@ -121,7 +130,6 @@ export const useYouTubeInput = (
         for (let i = 0; i < byteCharacters.length; i++) {
           byteArray[i] = byteCharacters.charCodeAt(i);
         }
-        
         
         let mimeType = 'audio/mp3';
         const ext = result.format?.toLowerCase() || 'mp3';
@@ -134,17 +142,95 @@ export const useYouTubeInput = (
         else if (ext === 'aac') mimeType = 'audio/aac';
 
         const blob = new Blob([byteArray], { type: mimeType });
-        
-        const actualElapsedSeconds = Math.round((Date.now() - startTime) / 1000);
-        const finalTime = formatTime(actualElapsedSeconds);
-        setTotalTimeTaken(finalTime); 
-        
-        onSuccess(blob, result.filename, mode);
-        setUrl('');
+        return { blob, filename: result.filename, ext };
       } else {
         throw new Error('Invalid response structure');
       }
+  };
 
+  const extractUrl = (text: string) => {
+      const match = text.match(/(https?:\/\/[^\s]+)/);
+      return match ? match[1] : text;
+  };
+
+  const processYouTube = async (mode: 'download' | 'transcribe') => {
+    if (downloadMode === 'bulk') {
+        const lines = bulkUrls.split('\n')
+            .map(l => extractUrl(l.trim()))
+            .filter(l => l);
+            
+        if (lines.length === 0) {
+            setError(appLang === 'bn' ? 'কোনো লিংক পাওয়া যায়নি' : 'No URLs provided');
+            return;
+        }
+        setLoading(true);
+        setLoadingMode(mode);
+        setError('');
+        setTotalTimeTaken(null);
+        const startTimeMs = Date.now();
+        
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        
+        let newQueue = lines.map(l => ({ url: l, status: 'pending' as 'pending', error: '', filename: '', timeTaken: '' }));
+        setBulkQueue(newQueue);
+        
+        for (let i = 0; i < newQueue.length; i++) {
+            if (controller.signal.aborted) break;
+            
+            setActiveItemIndex(i);
+            const itemStartTime = Date.now();
+            setActiveItemStartTime(itemStartTime);
+
+            setBulkQueue(q => q.map((item, idx) => idx === i ? { ...item, status: 'downloading' } : item));
+            try {
+                const res = await callApi(newQueue[i].url, controller);
+                const itemTimeSec = Math.round((Date.now() - itemStartTime) / 1000);
+                onSuccess(res.blob, res.filename, mode);
+                setBulkQueue(q => q.map((item, idx) => idx === i ? { ...item, status: 'success', filename: res.filename, timeTaken: formatTime(itemTimeSec) } : item));
+            } catch (e: any) {
+                if (e.name === 'AbortError') break;
+                const itemTimeSec = Math.round((Date.now() - itemStartTime) / 1000);
+                setBulkQueue(q => q.map((item, idx) => idx === i ? { ...item, status: 'failed', error: e.message, timeTaken: formatTime(itemTimeSec) } : item));
+            }
+        }
+        
+        setActiveItemIndex(-1);
+        setActiveItemStartTime(null);
+        
+        const actualElapsedSeconds = Math.round((Date.now() - startTimeMs) / 1000);
+        setTotalTimeTaken(formatTime(actualElapsedSeconds));
+        setLoading(false);
+        setLoadingMode(null);
+        abortControllerRef.current = null;
+        return;
+    }
+  
+    // Single Mode
+    const cleanUrl = extractUrl(url.trim());
+    const isValid = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be') || cleanUrl.includes('facebook.com') || cleanUrl.includes('fb.watch');
+    if (!cleanUrl || !isValid) {
+      setError(appLang === 'bn' ? 'সঠিক ইউটিউব বা ফেসবুক লিংক দিন' : 'Invalid Video URL');
+      return;
+    }
+
+    setLoading(true);
+    const startTimeMs = Date.now();
+    
+    setLoadingMode(mode);
+    setError('');
+    setTotalTimeTaken(null);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const res = await callApi(cleanUrl, controller);
+      const actualElapsedSeconds = Math.round((Date.now() - startTimeMs) / 1000);
+      setTotalTimeTaken(formatTime(actualElapsedSeconds)); 
+      
+      onSuccess(res.blob, res.filename, mode);
+      setUrl('');
     } catch (e: any) {
       if (e.name === 'AbortError') {
           console.log('Fetch aborted');
@@ -169,17 +255,20 @@ export const useYouTubeInput = (
   };
 
   return {
-    url,
-    setUrl,
-    loading,
-    loadingMode,
-    error,
-    elapsedSeconds,
-    totalTimeTaken,
-    quality,
-    setQuality,
-    handleCancel,
-    processYouTube,
-    formatTime
+    url, setUrl,
+    downloadMode, setDownloadMode,
+    mediaType, setMediaType,
+    bitrate, setBitrate,
+    channels, setChannels,
+    samplerate, setSamplerate,
+    startTime, setStartTime,
+    endTime, setEndTime,
+    bulkUrls, setBulkUrls,
+    bulkQueue, setBulkQueue,
+    loading, loadingMode, error,
+    elapsedSeconds, totalTimeTaken,
+    quality, setQuality,
+    handleCancel, processYouTube, formatTime,
+    activeItemIndex, activeItemStartTime
   };
 };

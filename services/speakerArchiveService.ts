@@ -1,4 +1,4 @@
-import { fetchDataDual } from './api';
+import { getAllFromStore } from './db';
 import { SpeakerBgbMention, SpeakerDatabaseStats, SpeakerCustomNote } from '../types/speaker';
 
 const BGB_KEYWORDS = [
@@ -37,7 +37,7 @@ export const scanDatabaseForSpeaker = async (
   // 1. Fetch all items from studio_history
   let historyItems: any[] = [];
   try {
-    historyItems = await fetchDataDual('studio_history');
+    historyItems = await getAllFromStore('studio_history') as any[];
   } catch (e) {
     console.warn('Could not load history items for speaker scan:', e);
   }

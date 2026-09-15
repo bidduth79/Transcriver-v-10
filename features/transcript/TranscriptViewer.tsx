@@ -13,7 +13,8 @@ export const renderFormattedTranscriptInternal = (
   currentMatchIndex: number,
   sensitiveMatches: string[] = [],
   onSeek?: (timeStr: string) => void,
-  onSpeakerClick?: (name: string) => void
+  onSpeakerClick?: (name: string) => void,
+  onRenameSpeaker?: (oldName: string) => void
 ) => {
   if (!text) return null;
   const matchIndexRef = { current: 0 };
@@ -23,13 +24,13 @@ export const renderFormattedTranscriptInternal = (
 
   return text.split('\n').map((line: string, i: number) => {
     // Extract timestamp if it exists at the beginning of the line
-    const timestampMatch = line.match(/^(\[(?:\d{1,2}:)?\d{1,2}:\d{2}\])\s*(.*)/);
+    const timestampMatch = line.match(/^[\*\_\[\(\s]*((?:\d{1,2}:)?\d{1,2}:\d{2})[\*\_\]\)\s]*\s+(.*)/);
     
     let timestamp = '';
     let content = line;
     
     if (timestampMatch) {
-      timestamp = timestampMatch[1];
+      timestamp = `[${timestampMatch[1]}]`;
       content = timestampMatch[2];
     }
 
@@ -45,7 +46,7 @@ export const renderFormattedTranscriptInternal = (
 
     const parts = content.split(/(\*\*.*?\*\*)/g);
     return (
-      <div key={i} className="mb-2 min-h-[1.5em] leading-relaxed flex items-start group">
+      <div key={i} style={{ contentVisibility: 'auto', containIntrinsicSize: '1.5em' }} className="mb-2 min-h-[1.5em] leading-relaxed flex items-start group">
         {timestamp && (
           <span 
             onClick={() => onSeek && onSeek(timestamp)}
@@ -60,19 +61,32 @@ export const renderFormattedTranscriptInternal = (
           {parts.map((part: string, j: number) => {
             if (part.startsWith('**') && part.endsWith('**')) {
               const textInside = part.slice(2, -2);
+              const hasColon = textInside.trim().endsWith(':');
               const cleanName = textInside.replace(/:$/, '').trim();
-              const isProper = cleanName.split(/\s+/).length <= 4 && isProperName(cleanName);
+              const isGeneric = !isProperName(cleanName);
+              // It's a speaker if it's a proper name OR if it ends with a colon (like Speaker 1:)
+              const isProper = cleanName.split(/\s+/).length <= 4 && (!isGeneric || hasColon);
               
               if (isProper && onSpeakerClick) {
                 return (
-                  <button 
-                    key={j} 
-                    onClick={(e) => { e.stopPropagation(); onSpeakerClick(cleanName); }}
-                    className={`hover:underline cursor-pointer transition-colors font-bold ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-700 hover:text-indigo-600'}`}
-                    title={`View profile: ${cleanName}`}
-                  >
-                    {textInside}
-                  </button>
+                  <span key={j} className="inline-flex items-center gap-1 group/speaker">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onSpeakerClick(cleanName); }}
+                      className={`hover:underline cursor-pointer transition-colors font-bold ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-700 hover:text-indigo-600'}`}
+                      title={`View profile: ${cleanName}`}
+                    >
+                      {textInside}
+                    </button>
+                    {onRenameSpeaker && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onRenameSpeaker(cleanName); }}
+                        className="opacity-0 group-hover/speaker:opacity-100 p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-opacity"
+                        title="Rename Speaker Globally"
+                      >
+                        <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      </button>
+                    )}
+                  </span>
                 );
               }
 
@@ -101,7 +115,8 @@ export const TranscriptViewer = ({
   transcript,
   sensitiveMatches = [],
   onSeek,
-  onSpeakerClick
+  onSpeakerClick,
+  onRenameSpeaker
 }: any) => {
   const matchIndexRef = useRef(0);
   const { formatText } = useTranscriptFormatter(searchTerm, isDark, currentMatchIndex, sensitiveMatches);
@@ -134,13 +149,14 @@ export const TranscriptViewer = ({
             <div
               key={idx}
               id={isActive ? 'active-transcript-segment' : undefined}
+              style={{ contentVisibility: 'auto', containIntrinsicSize: '100px' }}
               onClick={() => onSeek && onSeek(`[${Math.floor(seg.start / 60).toString().padStart(2, '0')}:${(seg.start % 60).toString().padStart(2, '0')}]`)}
               className={`transition-all duration-500 rounded-xl p-4 border-l-4 cursor-pointer group/seg relative overflow-hidden ${
                 isActive
                   ? (isDark ? 'bg-indigo-500/25 border-indigo-400 shadow-2xl scale-[1.02] z-10 ring-1 ring-indigo-500/40' : 'bg-yellow-100/90 border-yellow-500 shadow-xl scale-[1.02] z-10 ring-1 ring-yellow-400/40')
                   : hasSearchMatch
                     ? (isDark ? 'bg-red-500/10 border-red-500/50 opacity-100' : 'bg-red-50 border-red-400 opacity-100')
-                    : `border-transparent opacity-40 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 ${isKaraokeEnabled ? 'blur-[0.5px]' : ''}`
+                    : `border-transparent ${isKaraokeEnabled ? 'opacity-70' : 'opacity-100'} hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5`
               } ${hasSensitiveMatch && !isActive ? 'ring-1 ring-red-500/20' : ''}`}
             >
               {/* Match Indicator */}
@@ -174,19 +190,31 @@ export const TranscriptViewer = ({
                 {seg.text.split(/(\*\*.*?\*\*)/g).map((part: string, j: number) => {
                   if (part.startsWith('**') && part.endsWith('**')) {
                     const textInside = part.slice(2, -2);
+                    const hasColon = textInside.trim().endsWith(':');
                     const cleanName = textInside.replace(/:$/, '').trim();
-                    const isProper = cleanName.split(/\s+/).length <= 4 && isProperName(cleanName);
+                    const isGeneric = !isProperName(cleanName);
+                    const isProper = cleanName.split(/\s+/).length <= 4 && (!isGeneric || hasColon);
                     
                     if (isProper && onSpeakerClick) {
                       return (
-                        <button 
-                          key={j} 
-                          onClick={(e) => { e.stopPropagation(); onSpeakerClick(cleanName); }}
-                          className={`hover:underline cursor-pointer transition-colors font-bold ${isDark ? 'text-indigo-300 hover:text-indigo-200' : 'text-indigo-800 hover:text-indigo-600'}`}
-                          title={`View profile: ${cleanName}`}
-                        >
-                          {textInside}
-                        </button>
+                        <span key={j} className="inline-flex items-center gap-1 group/speaker">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onSpeakerClick(cleanName); }}
+                            className={`hover:underline cursor-pointer transition-colors font-bold ${isDark ? 'text-indigo-300 hover:text-indigo-200' : 'text-indigo-800 hover:text-indigo-600'}`}
+                            title={`View profile: ${cleanName}`}
+                          >
+                            {textInside}
+                          </button>
+                          {onRenameSpeaker && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onRenameSpeaker(cleanName); }}
+                              className="opacity-0 group-hover/speaker:opacity-100 p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-opacity"
+                              title="Rename Speaker Globally"
+                            >
+                              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                          )}
+                        </span>
                       );
                     }
                     return <strong key={j} className={isDark ? 'text-indigo-300' : 'text-indigo-800'}>{textInside}</strong>;
@@ -212,7 +240,7 @@ export const TranscriptViewer = ({
     <>
       {isSynced && isKaraokeEnabled && transcriptSegments.length > 0
         ? renderSyncedTranscript()
-        : renderFormattedTranscriptInternal(transcript, searchTerm, isDark, currentMatchIndex, sensitiveMatches, onSeek, onSpeakerClick)
+        : renderFormattedTranscriptInternal(transcript, searchTerm, isDark, currentMatchIndex, sensitiveMatches, onSeek, onSpeakerClick, onRenameSpeaker)
       }
     </>
   );
