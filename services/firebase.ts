@@ -22,15 +22,20 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+const isConfigValid = !!firebaseConfig.apiKey;
+
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
-const db = getFirestore(app);
-const auth = getAuth(app);
+const app = isConfigValid ? initializeApp(firebaseConfig) : null as any;
+const db = isConfigValid ? getFirestore(app) : null as any;
+const auth = isConfigValid ? getAuth(app) : null as any;
 
 // Automatically sign in anonymously to allow access to Firestore data protected by auth rules
-export const authPromise = signInAnonymously(auth).catch((error: any) => {
-  console.warn("Firebase Anonymous Auth Failed. Cloud features may be limited.", error.message);
-});
+export const authPromise = (isConfigValid && auth) 
+  ? signInAnonymously(auth).catch((error: any) => {
+      console.warn("Firebase Anonymous Auth Failed. Cloud features may be limited.", error.message);
+    })
+  : Promise.resolve().then(() => {
+      console.warn("Firebase API key is missing. Cloud features will be disabled.");
+    });
 
 export { app, db, auth };
