@@ -31,7 +31,11 @@ export const useTranscription = (
     resetAll
   } = state;
 
-  const processTranscription = async (inputFile = file, inputMetadata = fileMeta, isAutoProcess = false) => {
+  const processTranscription = async (providedFile?: any, providedMetadata?: any, providedAutoProcess?: any) => {
+    const inputFile = (providedFile instanceof Blob) ? providedFile : file;
+    const inputMetadata = (providedMetadata && !(providedMetadata instanceof Event) && typeof providedMetadata === 'object') ? providedMetadata : fileMeta;
+    const isAutoProcess = typeof providedAutoProcess === 'boolean' ? providedAutoProcess : (typeof providedFile === 'boolean' ? providedFile : false);
+
     if (!inputFile) return;
 
     if (inputFile.size > 70 * 1024 * 1024) {
