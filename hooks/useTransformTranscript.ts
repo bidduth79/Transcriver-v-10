@@ -11,7 +11,7 @@ export const useTransformTranscript = (
 ) => {
   const [transformingType, setTransformingType] = useState<'translate' | 'encoding' | null>(null);
 
-  const handleTransformTranscript = async (type: 'translate' | 'encoding') => {
+  const handleTransformTranscript = async (type: 'translate' | 'encoding', targetLang?: 'en' | 'bn') => {
     if (!transcript) return;
     setTransformingType(type);
     
@@ -23,8 +23,8 @@ export const useTransformTranscript = (
         let prompt = "";
         
         if (type === 'translate') {
-            const targetLang = appLang === 'bn' ? 'English' : 'Bengali';
-            prompt = `You are a professional translator. Translate the following transcript to ${targetLang}.
+            const finalTargetLang = targetLang === 'en' ? 'English' : targetLang === 'bn' ? 'Bengali' : (appLang === 'bn' ? 'English' : 'Bengali');
+            prompt = `You are a professional translator. Translate the following transcript to ${finalTargetLang}.
 RULES:
 1. KEEP TIMESTAMP FORMAT EXACTLY AS IS: [MM:SS]
 2. Do NOT translate speaker labels if they are generic like "Speaker 1", but DO translate if they are descriptive.
