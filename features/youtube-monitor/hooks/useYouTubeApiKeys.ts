@@ -21,6 +21,23 @@ export const useYouTubeApiKeys = () => {
         }
       }
     }
+    const envKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+    if (envKey && typeof envKey === 'string' && envKey.trim() !== '') {
+      const trimmed = envKey.trim();
+      const exists = validKeys.some(k => k.key === trimmed);
+      if (!exists) {
+        validKeys.unshift({
+          id: 'env_youtube_key',
+          key: trimmed,
+          label: 'Environment (.env)',
+          isActive: true,
+          isPrimary: validKeys.length === 0,
+          isExhausted: false,
+          addedAt: Date.now()
+        });
+      }
+    }
+
     setApiKeys(validKeys);
   };
 
