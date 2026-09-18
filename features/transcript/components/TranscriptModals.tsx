@@ -4,7 +4,44 @@ import { ReportModal } from '../../../components/modals/ReportModal';
 import { FullscreenAnalysis } from '../../../components/modals/FullscreenAnalysis';
 import { SpeakerProfileSidebar } from '../../../components/modals/SpeakerProfileSidebar';
 
-export const TranscriptModals = ({
+import { FileMeta, HistoryItem } from '../../../types';
+
+export interface TranscriptModalsProps {
+  isSummaryOpen: boolean;
+  setIsSummaryOpen: (isOpen: boolean) => void;
+  isReportOpen: boolean;
+  setIsReportOpen: (isOpen: boolean) => void;
+  isAnalysisOpen: boolean;
+  setIsAnalysisOpen: (isOpen: boolean) => void;
+  isSpeakerProfileOpen: boolean;
+  closeProfile: () => void;
+  speakerName: string;
+  speakerProfile: any;
+  isSpeakerLoading: boolean;
+  speakerError: string | null;
+  refreshProfile: (speakerId: string) => void;
+  updateCustomNote: (note: any) => void;
+  transcript: string;
+  activeColors: any;
+  isDark: boolean;
+  appLang: 'bn' | 'en';
+  searchTerm: string;
+  matchCount: number;
+  fileMeta: FileMeta | null;
+  addToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+  onSeek: (time: number) => void;
+  onModelUpdate: (models: any) => void;
+  setIsAiLoading: (isLoading: boolean) => void;
+  history: HistoryItem[];
+  FormattedTranscript: React.FC<any>;
+  currentMatchIndex: number;
+  sensitiveMatches: any[];
+  openProfile: (speakerId: string) => void;
+  setTranscript: (transcript: string) => void;
+  setStatus: (status: string) => void;
+}
+
+export const TranscriptModals: React.FC<TranscriptModalsProps> = ({
   isSummaryOpen,
   setIsSummaryOpen,
   isReportOpen,
@@ -31,7 +68,7 @@ export const TranscriptModals = ({
   onModelUpdate,
   setIsAiLoading,
   history,
-  renderFormattedTranscriptInternal,
+  FormattedTranscript,
   currentMatchIndex,
   sensitiveMatches,
   openProfile,
@@ -76,7 +113,17 @@ export const TranscriptModals = ({
         isDark={isDark}
         activeColors={activeColors}
         appLang={appLang}
-        renderFormattedTranscript={(text) => renderFormattedTranscriptInternal(text, searchTerm, isDark, currentMatchIndex, sensitiveMatches, onSeek, openProfile)}
+        renderFormattedTranscript={(text: string) => (
+          <FormattedTranscript 
+            text={text} 
+            searchTerm={searchTerm} 
+            isDark={isDark} 
+            currentMatchIndex={currentMatchIndex} 
+            sensitiveMatches={sensitiveMatches} 
+            onSeek={onSeek} 
+            onSpeakerClick={openProfile} 
+          />
+        )}
         loadHistoryItem={(h) => {
           setTranscript(h.transcript);
           setStatus('completed');
@@ -90,8 +137,8 @@ export const TranscriptModals = ({
         speakerName={speakerName}
         profile={speakerProfile}
         isLoading={isSpeakerLoading}
-        error={speakerError}
-        onRefresh={refreshProfile}
+        error={speakerError || ''}
+        onRefresh={() => refreshProfile(speakerName)}
         onUpdateCustomNote={updateCustomNote}
         onSeek={onSeek}
       />

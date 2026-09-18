@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    getAllApiKeys, 
-    addUserApiKey, 
-    deleteApiKey, 
-    setActiveApiKey, 
-    getActiveKeyId, 
-    UserApiKey 
-} from '../../../services/ApiKeyManager';
+import { useAppStore } from '@/hooks/useAppStore';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Key, Plus, Trash2, CheckCircle2, Copy, AlertCircle } from 'lucide-react';
+import { UserApiKey, addUserApiKey, deleteApiKey, setActiveApiKey, getAllApiKeys, getActiveKeyId } from '../../../services/ApiKeyManager';
 import { STORES } from '../../../services/db';
+import { ConfirmModal } from '../ConfirmModal';
 
 interface SettingsApiKeysProps {
     isDark: boolean;
@@ -22,6 +19,7 @@ export const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ isDark, active
     const [newKeyInput, setNewKeyInput] = useState('');
     const [newKeyLabel, setNewKeyLabel] = useState('');
     const [isAddingKey, setIsAddingKey] = useState(false);
+    const [keyToDelete, setKeyToDelete] = useState<string | null>(null);
 
     const refreshKeys = async () => {
         try {
@@ -38,17 +36,16 @@ export const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ isDark, active
     useEffect(() => {
         let mounted = true;
         refreshKeys();
-
-        const handleKeysUpdate = () => {
-            if (mounted) refreshKeys();
-        };
-        window.addEventListener(`store-updated-${STORES.API_KEYS}`, handleKeysUpdate);
-
+        refreshKeys();
         return () => { 
             mounted = false; 
-            window.removeEventListener(`store-updated-${STORES.API_KEYS}`, handleKeysUpdate);
         };
     }, []);
+
+    const apiKeysUpdates = useAppStore(state => state.storeUpdates[STORES.API_KEYS]);
+    useEffect(() => {
+        refreshKeys();
+    }, [apiKeysUpdates]);
 
     const handleAddKey = async () => {
         if (!newKeyInput.trim()) {
@@ -76,11 +73,16 @@ export const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ isDark, active
         addToast(appLang === 'bn' ? 'এপিআই কি সিলেক্ট করা হয়েছে' : 'API Key Selected', 'success');
     };
 
-    const handleDeleteKey = async (id: string) => {
-        if (window.confirm(appLang === 'bn' ? 'আপনি কি নিশ্চিত?' : 'Are you sure?')) {
-            await deleteApiKey(id);
+    const handleDeleteKey = (id: string) => {
+        setKeyToDelete(id);
+    };
+
+    const confirmDelete = async () => {
+        if (keyToDelete) {
+            await deleteApiKey(keyToDelete);
             await refreshKeys();
             addToast(appLang === 'bn' ? 'কি ডিলিট করা হয়েছে' : 'Key deleted', 'warning');
+            setKeyToDelete(null);
         }
     };
 
@@ -159,6 +161,18 @@ export const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ isDark, active
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={!!keyToDelete}
+                onClose={() => setKeyToDelete(null)}
+                onConfirm={confirmDelete}
+                title={appLang === 'bn' ? 'কনফার্মেশন' : 'Confirmation'}
+                message={appLang === 'bn' ? 'আপনি কি নিশ্চিত যে এই কি-টি ডিলিট করতে চান?' : 'Are you sure you want to delete this key?'}
+                confirmText={appLang === 'bn' ? 'ডিলিট করুন' : 'Delete'}
+                cancelText={appLang === 'bn' ? 'বাতিল' : 'Cancel'}
+                isDark={isDark}
+                activeColors={activeColors}
+            />
         </div>
     );
 };

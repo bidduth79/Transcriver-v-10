@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { QueueState, YouTubeVideo } from '../../../types/youtube';
 import { STORES, addToStore } from '../../../services/db';
 import { playSuccessSound, playErrorSound, playCompletionSound } from '../utils/audio';
@@ -77,7 +78,7 @@ export const useQueueProcessor = (
           
           setQueueState(prev => {
             const updatedVideo = { ...video, status: 'completed' as const, progress: 100, retryCount: 0 };
-            addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ভিডিও স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message } })));
+            addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => useAppStore.getState().setAppError('ভিডিও স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message));
             playSuccessSound();
             onAnnounce?.(appLang === 'bn' ? 'ট্রান্সক্রিপশন সম্পন্ন হয়েছে' : 'Transcription completed');
             sessionStatsRef.current.completed += 1;
@@ -90,7 +91,7 @@ export const useQueueProcessor = (
         } else {
           setQueueState(prev => {
             const updatedVideo = { ...video, status: 'completed' as const, progress: 100, retryCount: 0 };
-            addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ভিডিও স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message } })));
+            addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => useAppStore.getState().setAppError('ভিডিও স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message));
             playSuccessSound();
             onAnnounce?.(appLang === 'bn' ? 'ডাউনলোড সম্পন্ন হয়েছে' : 'Download completed');
             sessionStatsRef.current.completed += 1;
@@ -105,9 +106,9 @@ export const useQueueProcessor = (
         const isRateLimit = errorMessage.includes('RATE_LIMIT') || errorMessage.includes('429') || errorMessage.includes('Too Many Requests') || errorMessage.toLowerCase().includes('bot');
         
         if (!isRateLimit) {
-          window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ভিডিও প্রসেসিং এ সমস্যা হয়েছে: ' + error.message } }));
+          useAppStore.getState().setAppError('ভিডিও প্রসেসিং এ সমস্যা হয়েছে: ' + error.message);
         } else {
-          window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ইউটিউব থেকে ব্লক করা হয়েছে (Rate Limit)। ৫ মিনিট পর আবার চেষ্টা করা হবে।' } }));
+          useAppStore.getState().setAppError('ইউটিউব থেকে ব্লক করা হয়েছে (Rate Limit)। ৫ মিনিট পর আবার চেষ্টা করা হবে।');
         }
 
         const currentRetryCount = (video.retryCount || 0) + 1;
@@ -123,7 +124,7 @@ export const useQueueProcessor = (
             error: errorMessage, 
             retryCount: currentRetryCount 
           };
-          addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'এরর স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message } })));
+          addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => useAppStore.getState().setAppError('এরর স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message));
 
           if (isFailed) {
             sessionStatsRef.current.errors += 1;
@@ -135,7 +136,7 @@ export const useQueueProcessor = (
     };
 
     processVideo(nextVideo);
-  }, [queueState.queue, isPaused, isAutoProcess, isAutoDownload, queueState.activeVideoId, setQueueState, isAppProcessing, onAnnounce, appLang, setShowReportModal, setCompletedCount, setErrorCount, downloadVideo, transcribeVideo]);
+  }, [queueState.queue, isPaused, isAutoProcess, isAutoDownload, queueState.activeVideoId, setQueueState, isAppProcessing, onAnnounce, appLang, setShowReportModal, setCompletedCount, setErrorCount, downloadVideo, transcribeVideo, onStartTranscription]);
 
   return { countdown, currentAction };
 };

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { getSensitiveKeywords } from '../../../utils/sensitiveKeywords';
 
 export const useSidebar = (appLang: string, handleFileChange: any, audioRef: any) => {
@@ -6,17 +7,11 @@ export const useSidebar = (appLang: string, handleFileChange: any, audioRef: any
   const [playbackRate, setPlaybackRate] = useState(1);
   const [sensitiveKeywords, setSensitiveKeywordsList] = useState<string[]>([]);
 
-  useEffect(() => {
-    // Load initial keywords
-    setSensitiveKeywordsList(getSensitiveKeywords());
+  const sensitiveKeywordsUpdated = useAppStore(state => state.sensitiveKeywordsUpdated);
 
-    // Listen for updates
-    const handleUpdate = () => {
-      setSensitiveKeywordsList(getSensitiveKeywords());
-    };
-    window.addEventListener('sensitive-keywords-updated', handleUpdate);
-    return () => window.removeEventListener('sensitive-keywords-updated', handleUpdate);
-  }, []);
+  useEffect(() => {
+    setSensitiveKeywordsList(getSensitiveKeywords());
+  }, [sensitiveKeywordsUpdated]);
 
   const getSensitiveMatches = (text: string) => {
     if (!text) return [];

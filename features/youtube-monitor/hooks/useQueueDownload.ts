@@ -1,3 +1,5 @@
+import { useState, useRef } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { YouTubeVideo, QueueState } from '../../../types/youtube';
 import { getApiUrl } from '../../../services/api';
 import { STORES, addToStore } from '../../../services/db';
@@ -93,7 +95,7 @@ export const useQueueDownload = (
       result = JSON.parse(text);
     } catch (e) {
       console.error("Server Raw Response:", text);
-      window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'সার্ভার এরর (JSON Parse Failed)' } }));
+      useAppStore.getState().setAppError('সার্ভার এরর (JSON Parse Failed)');
       throw new Error("সার্ভার এরর (JSON Parse Failed)");
     }
 
@@ -125,7 +127,7 @@ export const useQueueDownload = (
       if (!links.some((l: any) => l.url === urlToSave)) {
         links.unshift({ url: urlToSave, title: video.title, timestamp: new Date().toISOString() });
         localStorage.setItem('jarvis_downloaded_links', JSON.stringify(links));
-        window.dispatchEvent(new Event('jarvis_links_updated'));
+        useAppStore.getState().triggerJarvisLinksUpdated();
         
         const visitedStr = localStorage.getItem('yt_visited_links') || '[]';
         addToStore(STORES.YOUTUBE_LINKS, {
@@ -133,11 +135,11 @@ export const useQueueDownload = (
           downloaded: links,
           visited: JSON.parse(visitedStr),
           updatedAt: new Date().toISOString()
-        }).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'লিঙ্ক সেভ করতে ব্যর্থ: ' + err.message } })));
+        }).catch(err => useAppStore.getState().setAppError('লিঙ্ক সেভ করতে ব্যর্থ: ' + err.message));
       }
     } catch (e: any) {
       console.error("Error saving downloaded link", e);
-      window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ডাউনলোড লিঙ্ক সেভ করতে ব্যর্থ: ' + e.message } }));
+      useAppStore.getState().setAppError('ডাউনলোড লিঙ্ক সেভ করতে ব্যর্থ: ' + e.message);
     }
     
     setQueueState(prev => ({

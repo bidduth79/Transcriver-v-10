@@ -17,7 +17,7 @@ export const useReportActions = (
   fileMeta: any, 
   appLang: 'bn' | 'en', 
   addToast: (msg: string, type: any) => void,
-  onModelUpdate?: () => void,
+  onModelUpdate?: (models?: any) => void,
   setIsAiLoading?: (loading: boolean) => void
 ) => {
   const [report, setReport] = useState('');

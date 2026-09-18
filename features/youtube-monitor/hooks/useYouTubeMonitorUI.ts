@@ -57,7 +57,7 @@ export function useYouTubeMonitorUI(
       return;
     }
     const channel = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
       channelId: newChannelId.trim(),
       title: newChannelTitle.trim(), 
       addedAt: Date.now()
@@ -119,7 +119,7 @@ export function useYouTubeMonitorUI(
   const handleAddKey = async () => {
     if (!newApiKey.trim()) return;
     const key = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
       key: newApiKey.trim(),
       label: newApiLabel.trim() || 'API Key',
       isActive: true,

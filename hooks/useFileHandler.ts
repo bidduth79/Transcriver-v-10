@@ -25,7 +25,7 @@ interface UseFileHandlerProps {
   setHasBatchStarted: (b: boolean) => void;
   setIsBatchPaused: (b: boolean) => void;
   setBatchCountdown: (c: number) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export const useFileHandler = ({
@@ -123,12 +123,14 @@ export const useFileHandler = ({
           durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
         }
         finishMetadata(durationStr);
+        audio.src = ''; // Release media resource
       };
 
       audio.onerror = () => {
         if (resolved) return;
         resolved = true;
         finishMetadata("Unknown");
+        audio.src = ''; // Release media resource
       };
 
       setTimeout(() => {
@@ -165,6 +167,7 @@ export const useFileHandler = ({
                   date: new Date().toISOString()
                 };
                 setFileMeta(metadata);
+                audio.src = ''; // Release media resource
               };
               audio.onerror = () => {
                 setFileMeta({

@@ -17,7 +17,7 @@ export const logSystemActivity = async (
   details = ''
 ) => {
   const logEntry: SystemLogItem = {
-    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+    id: Date.now().toString() + Math.random().toString(36).substring(2, 7),
     timestamp: new Date().toISOString(),
     category,
     status,

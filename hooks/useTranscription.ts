@@ -1,11 +1,61 @@
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { getActiveProvider, incrementTotalCalls } from '../services/ApiKeyManager';
-import { fileToBase64 } from '../utils/fileUtils';
+
 import { addToStore, STORES } from '../services/db';
 import { logSystemActivity } from '../services/SystemLogger';
 import { TRANSCRIPTION_SYSTEM_INSTRUCTION, TRANSCRIPTION_PROMPT_TEXT, TRANSCRIPTION_SYSTEM_INSTRUCTION_NORMAL, TRANSCRIPTION_PROMPT_TEXT_NORMAL } from '../constants/instructions';
 import { useTranscriptionState } from './transcription/useTranscriptionState';
 import { removeRepetitiveBlocks, calculateEstimatedSeconds, parseDurationToSeconds } from './transcription/transcriptionUtils';
+
+const formatErrorMessage = (rawError: any, lang: 'bn' | 'en'): string => {
+  let rawMsg = typeof rawError === 'string' ? rawError : (rawError?.message || "Unknown error occurred");
+  
+  try {
+    const parsed = JSON.parse(rawMsg);
+    if (parsed?.error?.message) {
+        try {
+            const innerParsed = JSON.parse(parsed.error.message);
+            if (innerParsed?.error?.message) {
+                rawMsg = innerParsed.error.message;
+            } else {
+                rawMsg = parsed.error.message;
+            }
+        } catch(e) {
+            rawMsg = parsed.error.message;
+        }
+    }
+  } catch (e) {
+    // Not a JSON string
+  }
+
+  const lowerMsg = rawMsg.toLowerCase();
+  
+  if (lowerMsg.includes('503') || lowerMsg.includes('unavailable') || lowerMsg.includes('high demand') || lowerMsg.includes('overloaded')) {
+      return lang === 'bn' 
+        ? "সার্ভারে এখন অনেক চাপ রয়েছে (High Demand)। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।"
+        : "The server is currently experiencing high demand. Please try again later.";
+  }
+  
+  if (lowerMsg.includes('429') || lowerMsg.includes('quota') || lowerMsg.includes('rate limit')) {
+      return lang === 'bn' 
+        ? "আপনার এপিআই কোটা শেষ হয়ে গেছে অথবা লিমিট অতিক্রম করেছে।"
+        : "Your API quota has been exceeded or rate limit reached.";
+  }
+  
+  if (lowerMsg.includes('400') || lowerMsg.includes('invalid argument') || lowerMsg.includes('bad request')) {
+      return lang === 'bn' 
+        ? "ভুল রিকোয়েস্ট বা ফাইল সাইজ/ফরম্যাট সাপোর্ট করছে না।"
+        : "Bad request. The file size or format might not be supported.";
+  }
+
+  if (lowerMsg.includes('fetch') || lowerMsg.includes('network') || lowerMsg.includes('failed to fetch')) {
+      return lang === 'bn'
+        ? "নেটওয়ার্ক কানেকশন সমস্যা। দয়া করে আপনার ইন্টারনেট কানেকশন চেক করুন।"
+        : "Network connection issue. Please check your internet connection.";
+  }
+
+  return rawMsg.length > 300 ? rawMsg.substring(0, 300) + '...' : rawMsg;
+};
 
 export const useTranscription = (
   appLang: 'en' | 'bn',
@@ -38,10 +88,10 @@ export const useTranscription = (
 
     if (!inputFile) return;
 
-    if (inputFile.size > 70 * 1024 * 1024) {
+    if (inputFile.size > 500 * 1024 * 1024) {
       addToast(appLang === 'bn' 
-        ? 'ফাইল সাইজ ৭০ এমবি এর বেশি হতে পারবে না। মেমোরি ক্র্যাশ এড়াতে অনুগ্রহ করে Tools থেকে ফাইলটি Compress করে নিন।' 
-        : 'File size cannot exceed 70MB to prevent memory crash. Please compress the file from Tools.', 'error');
+        ? 'ফাইল সাইজ ৫০০ এমবি এর বেশি হতে পারবে না। অনুগ্রহ করে Tools থেকে ফাইলটি Compress করে নিন।' 
+        : 'File size cannot exceed 500MB. Please compress the file from Tools.', 'error');
       setStatus('idle');
       return;
     }
@@ -86,7 +136,6 @@ export const useTranscription = (
     }, 1000);
 
     try {
-      const base64Data = await fileToBase64(inputFile);
       const checkProvider = await getActiveProvider();
       
       if (!checkProvider) {
@@ -95,6 +144,24 @@ export const useTranscription = (
 
       const ai = new GoogleGenAI({ apiKey: checkProvider.key });
       const mimeType = inputFile.type || 'audio/mp3';
+      
+      setCurrentStage(appLang === 'bn' ? 'ফাইল এআই সার্ভারে আপলোড করা হচ্ছে...' : 'Uploading file to AI server...');
+      
+      // Upload file using Gemini File API
+      const uploadedFile = await ai.files.upload({ file: inputFile, config: { mimeType: mimeType } });
+      
+      setCurrentStage(appLang === 'bn' ? 'ফাইল প্রসেস হচ্ছে, অপেক্ষা করুন...' : 'Processing file on server, please wait...');
+
+      // Poll until file is ready
+      let getFile = await ai.files.get({ name: uploadedFile.name });
+      while (getFile.state === 'PROCESSING') {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        getFile = await ai.files.get({ name: uploadedFile.name });
+      }
+      
+      if (getFile.state === 'FAILED') {
+        throw new Error("File processing failed on AI server.");
+      }
       
       const systemInstruction = transcriptionMode === 'normal' 
         ? TRANSCRIPTION_SYSTEM_INSTRUCTION_NORMAL 
@@ -112,12 +179,15 @@ export const useTranscription = (
           promptText += "\n\nCRITICAL FOR THIS MODEL: Ensure every timestamp like [MM:SS] starts on a NEW LINE. Do NOT put timestamps in the middle of text. Each speaker's dialogue MUST be on a separate line. Example:\n[00:00] **Speaker 1:** Hello.\n[00:05] **Speaker 2:** Hi there.";
       }
 
+      const { createPartFromUri } = await import('@google/genai');
+      const filePart = createPartFromUri(getFile.uri, getFile.mimeType || mimeType);
+
       const requestOptions = {
           model: modelName, 
           contents: { 
               role: 'user',
               parts: [
-                  { inlineData: { mimeType: mimeType, data: base64Data as string } },
+                  filePart,
                   { text: promptText }
               ] 
           },
@@ -164,6 +234,13 @@ export const useTranscription = (
               fullText = finalCleanedText;
           }
           setTranscript(fullText);
+      }
+      
+      // Attempt to clean up the uploaded file to save user's cloud space
+      try {
+        await ai.files.delete({ name: uploadedFile.name });
+      } catch (err) {
+        console.warn("Could not delete file from Gemini server:", err);
       }
 
       await incrementTotalCalls('Transcription', checkProvider.model || 'gemini-3-flash-preview', checkProvider.source);
@@ -217,15 +294,18 @@ export const useTranscription = (
         bgbRemark: bgbRemark
       };
       await addToStore(STORES.HISTORY, historyItem);
+      
+      const { broadcastHistoryUpdate } = await import('./useBroadcastSync');
+      broadcastHistoryUpdate();
+      
       loadHistory();
       logSystemActivity('TRANSCRIPTION', 'SUCCESS', 'File Transcribed', `File: ${fileName}`);
 
       return { success: true, text: fullText };
     } catch (error: any) {
-      console.error(error);
+      console.error("Transcription Error:", error);
       setStatus('error');
-      const rawMsg = error.message || "Unknown error occurred";
-      const safeMsg = rawMsg.length > 300 ? rawMsg.substring(0, 300) + '...' : rawMsg;
+      const safeMsg = formatErrorMessage(error, appLang);
       setErrorMessage(safeMsg);
       logSystemActivity('TRANSCRIPTION', 'ERROR', 'Failed', safeMsg);
       return { success: false, error: safeMsg };

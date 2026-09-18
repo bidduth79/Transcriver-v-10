@@ -6,6 +6,7 @@ export const SidebarHistory = ({
   t,
   history,
   fullHistory,
+  isLoadingHistory,
   setIsHistoryFullscreen,
   groupedHistory: initialGroupedHistory,
   cardBg,
@@ -39,6 +40,7 @@ export const SidebarHistory = ({
   const restoreInputRef = React.useRef<HTMLInputElement>(null);
   const [isLoadingDate, setIsLoadingDate] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
+  const listRef = React.useRef<HTMLDivElement>(null);
 
   // Close Pickers when clicking outside
   useEffect(() => {
@@ -75,11 +77,20 @@ export const SidebarHistory = ({
       return initialGroupedHistory;
     }
     
-    // Perform search on the entire history array
-    const query = debouncedSearchQuery.toLowerCase();
-    const filtered = (history || []).filter((item: any) => 
-      (item.fileName || '').toLowerCase().includes(query)
-    );
+    // Perform search on the entire history array, including transcript content
+    const sourceArray = fullHistory && fullHistory.length > 0 ? fullHistory : (history || []);
+    let filtered = sourceArray;
+    
+    if (debouncedSearchQuery.trim()) {
+      const searchRegex = new RegExp(debouncedSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filtered = sourceArray.filter((item: any) => {
+        const rawFileName = item.fileName || '';
+        const displayFileName = rawFileName.replace(/_/g, ' ').replace(/#/g, '').replace(/\s+/g, ' ').trim();
+        const fileNameMatch = searchRegex.test(rawFileName) || searchRegex.test(displayFileName);
+        const transcriptMatch = searchRegex.test(item.transcript || item.text || '');
+        return fileNameMatch || transcriptMatch;
+      });
+    }
 
     // Group the filtered items
     const groups: any = {};
@@ -90,7 +101,7 @@ export const SidebarHistory = ({
     });
     
     return groups;
-  }, [history, initialGroupedHistory, debouncedSearchQuery]);
+  }, [history, fullHistory, initialGroupedHistory, debouncedSearchQuery]);
 
   const flatItems = useMemo(() => {
     const arr: any[] = [];
@@ -139,9 +150,28 @@ export const SidebarHistory = ({
     return days;
   }, [viewDate]);
 
+  // Smoothly scroll to active item to prevent layout jump when FileInfoSection mounts
+  const [prevActiveId, setPrevActiveId] = useState(activeHistoryId);
+  useEffect(() => {
+    if (activeHistoryId && activeHistoryId !== prevActiveId) {
+      setPrevActiveId(activeHistoryId);
+      const index = flatItems.findIndex((i: any) => i.type === 'item' && i.item.id === activeHistoryId);
+      if (index !== -1) {
+        // Small delay to allow FileInfoSection to render and update DOM heights
+        setTimeout(() => {
+          try {
+            rowVirtualizer.scrollToIndex(index, { align: 'center', behavior: 'smooth' });
+          } catch (e) {
+            // ignore
+          }
+        }, 150);
+      }
+    }
+  }, [activeHistoryId, prevActiveId, flatItems, rowVirtualizer]);
+
   return (
     <div className="flex flex-col">
-      <div className="px-6 pt-4 sticky top-0 z-[100] bg-inherit shrink-0">
+      <div className="px-6 pt-4 pb-2 z-50 shrink-0 sticky top-0 bg-inherit">
         <div className="flex items-center bg-slate-950 px-3 py-3 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.4)] border border-white/10 mb-2 h-[52px] relative cursor-default">
           <div className="peer/dot flex items-center group/dot cursor-pointer py-2 pr-4 z-20 shrink-0">
             <div className={`w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)] shrink-0 animate-pulse`}></div>
@@ -160,7 +190,7 @@ export const SidebarHistory = ({
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsDatePickerOpen(!isDatePickerOpen); setIsSentimentPickerOpen(false); setIsSearchOpen(false); }} 
                 className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shadow-inner shrink-0 cursor-pointer group ${isDatePickerOpen ? 'text-white bg-white/20 border-white/20' : 'text-white/40 hover:text-white bg-white/5 hover:bg-white/10 border-white/5'}`}
-                title={appLang === 'bn' ? 'তারিখ দিয়ে খুঁজুন' : 'Filter by Date'}
+                title={t.filterByDate}
               >
                 <svg className="w-4 h-4 transition-transform group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -224,7 +254,7 @@ export const SidebarHistory = ({
                                 setIsLoadingDate(false);
                             }, 50); 
                           }}
-                          title={hasHistory ? (appLang === 'bn' ? 'হিস্টোরি আছে' : 'Has history') : ''}
+                          title={hasHistory ? t.hasHistory : ''}
                           className={`
                             w-6 h-6 mx-auto flex items-center justify-center rounded-full text-[10px] transition-all relative
                             ${!calDay.isCurrentMonth ? (isDark ? 'text-slate-600 font-medium' : 'text-slate-400 font-medium') : (isDark ? 'text-slate-200 font-semibold' : 'text-slate-700 font-semibold')}
@@ -251,7 +281,7 @@ export const SidebarHistory = ({
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsSentimentPickerOpen(!isSentimentPickerOpen); setIsDatePickerOpen(false); setIsSearchOpen(false); }} 
                 className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shadow-inner shrink-0 cursor-pointer ${isSentimentPickerOpen ? 'text-white bg-white/20 border-white/20' : 'text-white/40 hover:text-white bg-white/5 hover:bg-white/10 border-white/5'} ${histSentimentFilter !== 'All' ? 'text-indigo-400 bg-indigo-500/20 border-indigo-500/30' : ''}`}
-                title={appLang === 'bn' ? 'সেন্টিমেন্ট ফিল্টার' : 'Sentiment Filter'}
+                title={t.sentimentFilter}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -274,7 +304,7 @@ export const SidebarHistory = ({
             <button 
               onClick={(e) => { e.stopPropagation(); setShowFavoritesOnly(!showFavoritesOnly); }} 
               className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shadow-inner shrink-0 cursor-pointer group ${showFavoritesOnly ? 'text-amber-400 bg-amber-400/20 border-amber-400/30' : 'text-white/40 hover:text-white bg-white/5 hover:bg-white/10 border-white/5'}`}
-              title={appLang === 'bn' ? 'শুধু বুকমার্ক দেখান' : 'Show Favorites Only'}
+              title={t.showFavoritesOnly}
             >
               <svg className="w-3.5 h-3.5 transition-transform group-hover:scale-125" fill={showFavoritesOnly ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -283,7 +313,7 @@ export const SidebarHistory = ({
             <button 
               onClick={(e) => { e.stopPropagation(); backupHistory(); }} 
               className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-green-400 bg-white/5 hover:bg-white/10 rounded-lg transition-all border border-white/5 shadow-inner shrink-0 cursor-pointer group" 
-              title={appLang === 'bn' ? 'ব্যাকআপ' : 'Backup'}
+              title={t.backup}
             >
               <svg className="w-3.5 h-3.5 transition-transform group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -295,7 +325,7 @@ export const SidebarHistory = ({
                 if (restoreInputRef.current) restoreInputRef.current.click(); 
               }} 
               className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-indigo-400 bg-white/5 hover:bg-white/10 rounded-lg transition-all border border-white/5 shadow-inner shrink-0 cursor-pointer group" 
-              title={appLang === 'bn' ? 'রিস্টোর' : 'Restore'}
+              title={t.restore}
             >
               <svg className="w-3.5 h-3.5 transition-transform group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -318,7 +348,7 @@ export const SidebarHistory = ({
           <button 
             onClick={(e) => { e.stopPropagation(); setIsSearchOpen(!isSearchOpen); setIsDatePickerOpen(false); }} 
             className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shadow-inner shrink-0 cursor-pointer group ${isSearchOpen ? 'text-white bg-white/20 border-white/20' : 'text-white/40 hover:text-white bg-white/5 hover:bg-white/10 border-white/5'}`}
-            title={appLang === 'bn' ? 'সার্চ করুন' : 'Search'}
+            title={t.search}
           >
             <svg className="w-4 h-4 transition-transform group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -346,7 +376,7 @@ export const SidebarHistory = ({
               autoFocus
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={appLang === 'bn' ? 'ফাইল বা টেক্সট খুঁজুন...' : 'Search files or text...'}
+              placeholder={t.searchFilesText}
               className={`w-full px-4 py-2.5 rounded-xl text-xs font-medium border focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'}`}
             />
           </div>
@@ -354,8 +384,24 @@ export const SidebarHistory = ({
       </div>
 
       {/* History content */}
-      <div className="px-6 pb-6 pt-1">
-        {!history || history.length === 0 ? (
+      <div className="px-6 pb-6 pt-1 relative" ref={listRef}>
+        {isLoadingHistory && (!history || history.length === 0) ? (
+          <div className="flex flex-col gap-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className={`p-4 rounded-2xl border animate-pulse ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/60 border-slate-200/60'}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`h-4 rounded w-2/3 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                  <div className={`h-3 rounded w-8 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                </div>
+                <div className={`h-3 rounded w-1/3 mb-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                <div className="flex gap-2">
+                  <div className={`h-6 rounded-full w-16 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                  <div className={`h-6 rounded-full w-12 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : !history || history.length === 0 ? (
           <div className="h-40 flex flex-col items-center justify-center opacity-30 text-slate-400 group cursor-default">
             <svg className="w-10 h-10 mb-2 transition-transform duration-700 group-hover:rotate-180 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <p className="text-[10px] font-bold uppercase tracking-widest">{t.empty}</p>
@@ -363,7 +409,7 @@ export const SidebarHistory = ({
         ) : Object.keys(processedGroupedHistory).length === 0 && searchQuery ? (
           <div className="h-40 flex flex-col items-center justify-center opacity-50 text-slate-400 group cursor-default">
             <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <p className="text-[10px] font-bold uppercase tracking-widest">{appLang === 'bn' ? 'কোনো ফলাফল পাওয়া যায়নি' : 'No results found'}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest">{t.noResultsFound}</p>
           </div>
         ) : (
           <div className={`${cardBg} p-5 rounded-3xl border ${cardBorder} shadow-[0_30px_60px_rgba(0,0,0,0.25)] transition-all mb-4 relative`}>
@@ -437,8 +483,20 @@ export const SidebarHistory = ({
               </div>
           </div>
         )}
-        <div ref={bottomRef} className="h-10 mt-2 flex items-center justify-center">
-            {isHistoryLoading && <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>}
+        <div ref={bottomRef} className="mt-2 flex flex-col gap-3 pb-4">
+            {isHistoryLoading && (
+              <div className={`p-4 rounded-2xl border animate-pulse ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/60 border-slate-200/60'}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`h-4 rounded w-2/3 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                  <div className={`h-3 rounded w-8 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                </div>
+                <div className={`h-3 rounded w-1/3 mb-4 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                <div className="flex gap-2">
+                  <div className={`h-6 rounded-full w-16 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                  <div className={`h-6 rounded-full w-12 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                </div>
+              </div>
+            )}
         </div>
       </div>
     </div>

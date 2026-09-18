@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { getAllFromStore, STORES } from '../../../services/db';
 
 export const useTranscriberReportLogic = (isOpen: boolean) => {
@@ -15,17 +16,13 @@ export const useTranscriberReportLogic = (isOpen: boolean) => {
     setToDate(lastDay.toISOString().split('T')[0]);
   }, []);
 
+  const historyUpdates = useAppStore(state => state.storeUpdates['studio_history']);
+  
   useEffect(() => {
     if (isOpen) {
       loadHistory();
     }
-    
-    const handleHistoryUpdate = () => {
-      if (isOpen) loadHistory();
-    };
-    window.addEventListener(`store-updated-studio_history`, handleHistoryUpdate);
-    return () => window.removeEventListener(`store-updated-studio_history`, handleHistoryUpdate);
-  }, [isOpen]);
+  }, [isOpen, historyUpdates]);
 
   const loadHistory = async () => {
     const data: any = await getAllFromStore(STORES.HISTORY);

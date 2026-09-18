@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { YouTubeVideo, QueueState } from '../../../types/youtube';
 import { STORES, addToStore } from '../../../services/db';
 
@@ -59,7 +60,7 @@ export const useYouTubeSelection = (
               const status = (first && !isAnyDownloading) ? 'downloading' : 'waiting';
               first = false;
               newQueue[inQueueIndex] = { ...videoToProcess, status: status as any, progress: 0 };
-              addToStore(STORES.YOUTUBE_QUEUE, newQueue[inQueueIndex]).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ভিডিও প্রসেস করতে ব্যর্থ: ' + err.message } })));
+              addToStore(STORES.YOUTUBE_QUEUE, newQueue[inQueueIndex]).catch(err => useAppStore.getState().setAppError('ভিডিও প্রসেস করতে ব্যর্থ: ' + err.message));
               return;
             }
           } else if (inHistoryIndex !== -1) {
@@ -78,13 +79,13 @@ export const useYouTubeSelection = (
             
             const newVideo = { 
               ...videoToProcess, 
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
               title: newTitle,
               status: status as any, 
               progress: 0 
             };
             newQueue.push(newVideo);
-            addToStore(STORES.YOUTUBE_QUEUE, newVideo).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'নতুন ভিডিও যোগ করতে ব্যর্থ: ' + err.message } })));
+            addToStore(STORES.YOUTUBE_QUEUE, newVideo).catch(err => useAppStore.getState().setAppError('নতুন ভিডিও যোগ করতে ব্যর্থ: ' + err.message));
           }
         });
         

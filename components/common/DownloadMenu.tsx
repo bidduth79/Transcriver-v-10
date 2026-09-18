@@ -6,11 +6,11 @@ import React, { useState, useRef, useEffect } from 'react';
 export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm, sensitiveMatches = [], addToast, customTrigger }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const [includeKeywords, setIncludeKeywords] = useState(true);
-  const menuRef = useRef(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -244,11 +244,28 @@ export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm
       let srtContent = "";
       const lines = safeTranscript.split('\n').filter((l: string) => l && typeof l === 'string' && l.trim() !== "");
       lines.forEach((line: string, index: number) => {
-        const timeMatch = line.match(/\[(\d{2}:\d{2})\]/);
-        const startTimeStr = timeMatch ? timeMatch[1] : "00:00";
+        const timeMatch = line.match(/\[(\d{1,2}):(\d{2})\]/);
+        let startMins = 0, startSecs = 0;
+        if (timeMatch) {
+          startMins = parseInt(timeMatch[1], 10);
+          startSecs = parseInt(timeMatch[2], 10);
+        }
+        // Calculate end time (start + 5 seconds)
+        let endMins = startMins;
+        let endSecs = startSecs + 5;
+        if (endSecs >= 60) {
+          endMins += Math.floor(endSecs / 60);
+          endSecs = endSecs % 60;
+        }
+        const startHours = Math.floor(startMins / 60);
+        const startRemMins = startMins % 60;
+        const endHours = Math.floor(endMins / 60);
+        const endRemMins = endMins % 60;
+
+        const pad = (n: number) => n.toString().padStart(2, '0');
         srtContent += `${index + 1}\n`;
-        srtContent += `00:${startTimeStr}:00,000 --> 00:${startTimeStr}:05,000\n`;
-        srtContent += `${line.replace(/\*\*.*?\*\*:/, '').trim()}\n\n`;
+        srtContent += `${pad(startHours)}:${pad(startRemMins)}:${pad(startSecs)},000 --> ${pad(endHours)}:${pad(endRemMins)}:${pad(endSecs)},000\n`;
+        srtContent += `${line.replace(/\*\*.*?\*\*:/, '').replace(/\[\d{1,2}:\d{2}\]\s*/, '').trim()}\n\n`;
       });
       const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
       downloadFile(blob, 'srt');

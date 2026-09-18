@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { STORES, getFromStore, addToStore } from '../../../services/db';
+import { useAppStore } from '@/hooks/useAppStore';
+import { STORES, getFromStore, getAllFromStore, addToStore } from '../../../services/db';
 
 export function useYouTubeLinks() {
   const [downloadedLinks, setDownloadedLinks] = useState<{url: string, title: string, timestamp: string}[]>([]);
@@ -92,11 +93,23 @@ export function useYouTubeLinks() {
         console.error("Error loading links", e);
       }
     };
-
+    
     syncLinks();
-    window.addEventListener('jarvis_links_updated', loadLinks);
-    return () => window.removeEventListener('jarvis_links_updated', loadLinks);
+    loadLinks();
   }, []);
+
+  const jarvisLinksUpdated = useAppStore(state => state.jarvisLinksUpdated);
+  useEffect(() => {
+    const loadLinks = () => {
+      try {
+        const linksStr = localStorage.getItem('jarvis_downloaded_links') || '[]';
+        setDownloadedLinks(JSON.parse(linksStr));
+      } catch (e) {
+        console.error("Error loading links", e);
+      }
+    };
+    loadLinks();
+  }, [jarvisLinksUpdated]);
 
   return {
     downloadedLinks,

@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { getAllFromStore, STORES } from '../../services/db';
+import { useAppStore } from '@/hooks/useAppStore';
+import { STORES, getAllFromStore, deleteFromStore } from '../../services/db';
 import { SystemLogItem } from '../../services/SystemLogger';
 
 interface ActivityLogsModalProps {
@@ -20,6 +20,9 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  
+  // Pagination
+  const [displayCount, setDisplayCount] = useState(50);
 
   // Window State
   const [isMinimized, setIsMinimized] = useState(false);
@@ -32,13 +35,12 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
       loadLogs();
       setIsMinimized(false);
     }
-    
-    const handleLogsUpdate = () => {
-      if (isOpen) loadLogs();
-    };
-    window.addEventListener(`store-updated-activity_logs`, handleLogsUpdate);
-    return () => window.removeEventListener(`store-updated-activity_logs`, handleLogsUpdate);
   }, [isOpen]);
+
+  const activityLogUpdates = useAppStore(state => state.storeUpdates['activity_logs']);
+  useEffect(() => {
+    if (isOpen) loadLogs();
+  }, [activityLogUpdates, isOpen]);
 
   const loadLogs = async () => {
     try {
@@ -79,6 +81,7 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
     }
 
     setFilteredLogs(res);
+    setDisplayCount(50); // Reset pagination on filter change
   }, [filterCategory, filterStatus, dateFrom, dateTo, logs]);
 
   // --- Resizing Logic ---
@@ -220,7 +223,8 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
                         <p className="text-xl font-black uppercase tracking-widest">NO LOGS FOUND</p>
                     </div>
                 ) : (
-                    filteredLogs.map(log => {
+                    <>
+                    {filteredLogs.slice(0, displayCount).map(log => {
                         if (!log) return null;
                         return (
                         <div key={log.id || Math.random().toString()} className={`p-5 rounded-2xl border transition-all hover:bg-black/5 flex items-start gap-5 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
@@ -243,7 +247,19 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
                             </div>
                         </div>
                         );
-                    })
+                    })}
+                    
+                    {filteredLogs.length > displayCount && (
+                        <div className="flex justify-center pt-4 pb-8">
+                            <button 
+                                onClick={() => setDisplayCount(prev => prev + 50)}
+                                className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'}`}
+                            >
+                                Load More
+                            </button>
+                        </div>
+                    )}
+                    </>
                 )}
             </div>
         </div>

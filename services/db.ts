@@ -1,11 +1,15 @@
 
 import { fetchDataDual, saveDataDual, deleteDataDual } from './api.ts';
+import { useAppStore } from '../hooks/useAppStore';
+
 
 export const DB_NAME = 'LiCellStudioDB_v5_Final'; 
 export const DB_VERSION = 3;
 
 import { STORES, FIREBASE_SYNCED_STORES, ALL_STORES } from '../constants/storeNames';
 export { STORES, FIREBASE_SYNCED_STORES, ALL_STORES };
+
+const SYNC_COOLDOWN = 1000 * 60 * 5; // 5 minutes
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -17,7 +21,7 @@ export const initDB = () => {
 
     request.onerror = () => {
         console.error("DB Open Error:", request.error);
-        window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ডাটাবেস ওপেন করতে সমস্যা হয়েছে: ' + request.error?.message } }));
+        useAppStore.getState().setAppError('ডাটাবেস ওপেন করতে সমস্যা হয়েছে: ' + request.error?.message);
         dbPromise = null;
         reject(request.error);
     };
@@ -55,7 +59,7 @@ export const addToStore = async (storeName: string, data: any) => {
       // Hide 'Failed to fetch' errors as they are expected in preview mode (CORS/Mixed Content)
       if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
         console.error(`Background save failed for ${storeName}:`, err);
-        window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা সেভ করতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
+        useAppStore.getState().setAppError(`ডাটা সেভ করতে সমস্যা হয়েছে (${storeName}): ` + err.message);
       } else {
         console.warn(`Background save failed (expected in preview): ${err.message}`);
       }
@@ -75,28 +79,34 @@ export const getFromStore = async (storeName: string, id: string) => {
   });
 
   if (storeName !== STORES.YOUTUBE_AUDIO) {
-     fetchDataDual(storeName).then(async (all) => {
-        const item = all.find((i: any) => i.id === id);
-        if (item) {
-           const db2 = await initDB();
-           const tx = db2.transaction([storeName], 'readwrite');
-           tx.objectStore(storeName).put(item);
-        }
-     }).catch(err => {
-       // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
-       if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
-         console.error(`Background fetch failed for ${storeName}:`, err);
-         window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা ফেচ করতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
-       } else {
-         console.warn(`Background fetch failed (expected in preview): ${err.message}`);
-       }
-     });
+     // Cooldown: only background-fetch once per item every 5 minutes
+     const cooldownKey = `sync_item_${storeName}_${id}`;
+     const lastSync = parseInt(localStorage.getItem(cooldownKey) || '0', 10);
+     const now = Date.now();
+     if (now - lastSync > SYNC_COOLDOWN) {
+       localStorage.setItem(cooldownKey, now.toString());
+       fetchDataDual(storeName).then(async (all) => {
+          const item = all.find((i: any) => i.id === id);
+          if (item) {
+             const db2 = await initDB();
+             const tx = db2.transaction([storeName], 'readwrite');
+             tx.objectStore(storeName).put(item);
+          }
+       }).catch(err => {
+         localStorage.removeItem(cooldownKey);
+         // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
+         if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
+           console.error(`Background fetch failed for ${storeName}:`, err);
+           useAppStore.getState().setAppError(`ডাটা ফেচ করতে সমস্যা হয়েছে (${storeName}): ` + err.message);
+         } else {
+           console.warn(`Background fetch failed (expected in preview): ${err.message}`);
+         }
+       });
+     }
   }
 
   return localItem;
 };
-
-const SYNC_COOLDOWN = 1000 * 60 * 5; // 5 minutes
 
 export const getAllFromStore = async (storeName: string, forceSync = false) => {
   const db = await initDB();
@@ -120,7 +130,7 @@ export const getAllFromStore = async (storeName: string, forceSync = false) => {
           const store = tx.objectStore(storeName);
           cloudData.forEach((item: any) => store.put(item));
           tx.oncomplete = () => {
-            window.dispatchEvent(new CustomEvent(`store-updated-${storeName}`));
+            useAppStore.getState().triggerStoreUpdate(storeName);
           };
         }
       }).catch(err => {
@@ -128,7 +138,7 @@ export const getAllFromStore = async (storeName: string, forceSync = false) => {
          // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
          if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
            console.error(`Background sync failed for ${storeName}:`, err);
-           window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা সিঙ্ক করতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
+           useAppStore.getState().setAppError(`ডাটা সিঙ্ক করতে সমস্যা হয়েছে (${storeName}): ` + err.message);
          } else {
            console.warn(`Background sync failed (expected in preview): ${err.message}`);
          }
@@ -154,7 +164,7 @@ export const deleteFromStore = async (storeName: string, id: string) => {
       // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
       if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
         console.error(`Background delete failed for ${storeName}:`, err);
-        window.dispatchEvent(new CustomEvent('app-error', { detail: { message: `ডাটা মুছতে সমস্যা হয়েছে (${storeName}): ` + err.message } }));
+        useAppStore.getState().setAppError(`ডাটা মুছতে সমস্যা হয়েছে (${storeName}): ` + err.message);
       } else {
         console.warn(`Background delete failed (expected in preview): ${err.message}`);
       }

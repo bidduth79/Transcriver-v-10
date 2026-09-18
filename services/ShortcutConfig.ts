@@ -58,7 +58,7 @@ export const getSavedShortcuts = () => {
   }
 };
 
-export const saveShortcut = (actionId, keys) => {
+export const saveShortcut = (actionId: string, keys: string) => {
   const current = getSavedShortcuts();
   current[actionId] = keys;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
@@ -68,24 +68,24 @@ export const resetShortcuts = () => {
   localStorage.removeItem(STORAGE_KEY);
 };
 
-export const getActiveShortcut = (actionId) => {
+export const getActiveShortcut = (actionId: string) => {
   const saved = getSavedShortcuts();
   if (saved[actionId]) return saved[actionId];
   const def = DEFAULT_SHORTCUTS.find(a => a.id === actionId);
   return def ? def.defaultKeys : '';
 };
 
-export const matchesShortcut = (e, shortcutStr) => {
+export const matchesShortcut = (e: KeyboardEvent, shortcutStr: string) => {
   if (!shortcutStr) return false;
   
-  const parts = shortcutStr.toLowerCase().split('+').map(p => p.trim());
+  const parts = shortcutStr.toLowerCase().split('+').map((p: string) => p.trim());
   
   const ctrl = parts.includes('ctrl') || parts.includes('control');
   const shift = parts.includes('shift');
   const alt = parts.includes('alt');
   const meta = parts.includes('meta') || parts.includes('cmd') || parts.includes('command');
   
-  const mainKey = parts.filter(p => !['ctrl', 'control', 'shift', 'alt', 'meta', 'cmd', 'command'].includes(p))[0];
+  const mainKey = parts.filter((p: string) => !['ctrl', 'control', 'shift', 'alt', 'meta', 'cmd', 'command'].includes(p))[0];
 
   if (e.ctrlKey !== ctrl) return false;
   if (e.shiftKey !== shift) return false;

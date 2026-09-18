@@ -9,7 +9,7 @@ export function useSummaryAnalysis(
   appLang: 'en' | 'bn', 
   addToast: (msg: string, type: any) => void,
   setIsAiLoading?: (loading: boolean) => void,
-  onModelUpdate?: () => void
+  onModelUpdate?: (models?: any) => void
 ) {
   const [aiAnalysis, setAiAnalysis] = useState<{ sentiment: 'positive' | 'negative' | 'neutral', remark: string } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);

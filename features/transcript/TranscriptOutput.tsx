@@ -11,9 +11,56 @@ import { TranscriptScrollControls } from './components/TranscriptScrollControls'
 import { TranscriptIdleView } from './components/TranscriptIdleView';
 import { TranscriptErrorView } from './components/TranscriptErrorView';
 import { TranscriptToolbar } from './TranscriptToolbar';
-import { renderFormattedTranscriptInternal, escapeRegExp } from './TranscriptViewer';
+import { FormattedTranscript, escapeRegExp } from './TranscriptViewer';
 
-export const TranscriptOutput = ({
+import { FileMeta, HistoryItem, TranscriptMeta } from '../../types';
+
+export interface TranscriptOutputProps {
+  t: any;
+  status: string;
+  transcriptSearchInputRef: React.RefObject<HTMLInputElement>;
+  searchTerm: string;
+  handleSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  activeColors: any;
+  setStatus: (status: string) => void;
+  setTranscript: (transcript: string) => void;
+  mainBgColor: string;
+  fileUrl: string | null;
+  textColor: string;
+  isDark: boolean;
+  setIsSidebarOpen: (isOpen: boolean) => void;
+  fileMeta: FileMeta | null;
+  processTranscription: () => void;
+  cardBorder: string;
+  transcript: string;
+  fontSize: number;
+  setFontSize: React.Dispatch<React.SetStateAction<number>>;
+  matchCount: number;
+  currentMatchIndex: number;
+  goToNextMatch: () => void;
+  goToPrevMatch: () => void;
+  errorMessage: string;
+  transformTranscript: (type: string) => void;
+  transformingType: string | null;
+  addToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+  appLang: 'bn' | 'en';
+  history: HistoryItem[];
+  onSeek: (time: number) => void;
+  onModelUpdate: (models: any) => void;
+  setIsAiLoading: (isLoading: boolean) => void;
+  audioCurrentTime?: number;
+  activeTranscriptSourceMeta: TranscriptMeta | null;
+  progress?: number;
+  currentStage?: string;
+  elapsedSeconds?: number;
+  estimatedSeconds?: number;
+  setActiveHistoryId: (id: string | null) => void;
+  activeHistoryId: string | null;
+  setTranscriptMeta: (meta: any) => void;
+  audioRef: React.RefObject<HTMLAudioElement>;
+}
+
+export const TranscriptOutput: React.FC<TranscriptOutputProps> = ({
   t, status, transcriptSearchInputRef, searchTerm,
   handleSearchChange, activeColors, setStatus, setTranscript,
   mainBgColor, fileUrl, textColor, isDark, setIsSidebarOpen, fileMeta, processTranscription,
@@ -69,7 +116,7 @@ export const TranscriptOutput = ({
   const { isOpen: isSpeakerProfileOpen, speakerName, profile: speakerProfile, isLoading: isSpeakerLoading, error: speakerError, openProfile, closeProfile, refreshProfile, updateCustomNote } = useSpeakerProfile(transcript || '');
 
   const clearSearch = () => {
-    handleSearchChange({ target: { value: '' } });
+    handleSearchChange({ target: { value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>);
     transcriptSearchInputRef.current?.focus();
   };
 
@@ -79,7 +126,7 @@ export const TranscriptOutput = ({
 
   const isDisabled = status !== 'completed';
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchTerm) {
       e.preventDefault();
       goToNextMatch();
@@ -161,7 +208,7 @@ export const TranscriptOutput = ({
         {(status === 'idle' || (status === 'completed' && !transcript)) && (
           <TranscriptIdleView 
             t={t}
-            fileUrl={fileUrl}
+            fileUrl={fileUrl || ''}
             isDark={isDark}
             activeColors={activeColors}
             fileMeta={fileMeta}
@@ -225,7 +272,8 @@ export const TranscriptOutput = ({
                   onSeek={onSeek}
                   openProfile={openProfile}
                   onRenameSpeaker={handleRenameSpeaker}
-                  transcriptEndRef={transcriptEndRef}
+                  transcriptEndRef={transcriptEndRef as any}
+                  scrollElementRef={scrollContainerRef}
                 />
               </div>
               {status === 'completed' && (
@@ -310,7 +358,7 @@ export const TranscriptOutput = ({
         onModelUpdate={onModelUpdate}
         setIsAiLoading={setIsAiLoading}
         history={history}
-        renderFormattedTranscriptInternal={renderFormattedTranscriptInternal}
+        FormattedTranscript={FormattedTranscript}
         currentMatchIndex={currentMatchIndex}
         sensitiveMatches={sensitiveMatches}
         openProfile={openProfile}

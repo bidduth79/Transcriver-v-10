@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useHistoryItemCard } from './hooks/useHistoryItemCard';
 
-export const HistoryItemCard = ({ 
+export const HistoryItemCard = memo(({ 
   item, 
   activeHistoryId, 
   loadHistoryItem, 
@@ -168,4 +168,4 @@ export const HistoryItemCard = ({
       </div>
     </div>
   );
-};
+});

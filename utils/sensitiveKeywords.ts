@@ -1,3 +1,5 @@
+import { useAppStore } from '../hooks/useAppStore';
+
 export const getDefaultKeywords = () => [
   'বিজিবি', 'bgb', 'বিডিআর', 'বিডিয়ার', 'bdr', 'dg bgb', 'dg bdr',
   'বিজিবি মহাপরিচালক', 'সীমান্ত', 'বিজিবি সিও', 'বিজিবি অধিনায়ক',
@@ -20,5 +22,5 @@ export const getSensitiveKeywords = () => {
 export const setSensitiveKeywords = (keywords: string[]) => {
   localStorage.setItem('sensitive_keywords', JSON.stringify(keywords));
   // Dispatch a custom event to notify components that keywords have changed
-  window.dispatchEvent(new CustomEvent('sensitive-keywords-updated'));
+  useAppStore.getState().triggerSensitiveKeywordsUpdate();
 };

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { YouTubeVideo } from '../../../types/youtube';
 import { Download, ChevronDown, Video, Headphones, Copy, CheckCircle2, Bot, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -150,7 +151,7 @@ export const YouTubeVideoCardActions: React.FC<YouTubeVideoCardActionsProps> = (
                     onClick={() => {
                       localStorage.setItem('yt_default_download_type', 'video');
                       localStorage.setItem('yt_default_video_format', q);
-                      window.dispatchEvent(new Event('yt_settings_changed'));
+                      useAppStore.getState().triggerYtSettingsChanged();
                       setOpenDownloadId(null);
                     }}
                     className={`text-xs py-1.5 font-semibold rounded border transition-colors cursor-pointer ${defaultDownloadType === 'video' && defaultVideoFormat === q ? 'bg-blue-600 text-white border-blue-600' : (isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50 border-blue-800' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100')}`}
@@ -181,7 +182,7 @@ export const YouTubeVideoCardActions: React.FC<YouTubeVideoCardActionsProps> = (
                     onClick={() => {
                       localStorage.setItem('yt_default_download_type', 'audio');
                       localStorage.setItem('yt_default_audio_format', audio.id);
-                      window.dispatchEvent(new Event('yt_settings_changed'));
+                      useAppStore.getState().triggerYtSettingsChanged();
                       setOpenDownloadId(null);
                     }}
                     className={`text-[10px] py-1.5 px-1 font-semibold rounded border text-center transition-colors cursor-pointer ${defaultDownloadType === 'audio' && defaultAudioFormat === audio.id ? 'bg-pink-600 text-white border-pink-600' : (isDark ? 'bg-pink-900/30 text-pink-400 hover:bg-pink-900/50 border-pink-800' : 'bg-pink-50 text-pink-700 hover:bg-pink-100 border-pink-100')}`}

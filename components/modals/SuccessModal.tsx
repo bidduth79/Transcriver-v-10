@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SuccessModalProps {
   isOpen: boolean;
@@ -19,7 +19,12 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, ela
     }
   }, [isOpen]);
 
-  if (!isOpen || !isVisible) return null;
+  const handleClose = () => {
+    setIsVisible(false);
+    setTimeout(() => {
+      onClose();
+    }, 300); // Wait for exit animation
+  };
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -27,27 +32,38 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, ela
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleClose = () => {
-    setIsVisible(false); // Hide immediately
-    setTimeout(() => {
-      onClose(); // Trigger parent re-render on next tick
-    }, 10);
-  };
-
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 p-4">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-[2.5rem] p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
-        
-        {/* Background Glow */}
+    <AnimatePresence>
+      {isOpen && isVisible && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+        >
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-[2.5rem] p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden"
+          >
+            
+            {/* Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-emerald-500/20 blur-[80px] rounded-full pointer-events-none"></div>
 
         {/* Checkmark Icon */}
         <div className="w-20 h-20 bg-emerald-900/30 rounded-[1.5rem] flex items-center justify-center mb-6 relative border border-emerald-500/20">
-            <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.5)] animate-in zoom-in duration-500 delay-100">
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", damping: 15, stiffness: 300, delay: 0.1 }}
+              className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+            >
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-            </div>
+            </motion.div>
         </div>
 
         {/* Title */}
@@ -73,7 +89,9 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({ isOpen, onClose, ela
             {appLang === 'bn' ? 'ঠিক আছে' : 'OKAY'}
         </button>
 
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

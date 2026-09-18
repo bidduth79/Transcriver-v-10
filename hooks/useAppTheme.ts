@@ -1,27 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useThemeStore } from './useThemeStore';
 import { translations } from '../translations';
 
 export const useAppTheme = () => {
-  const [theme, setTheme] = useState(() => localStorage.getItem('app-theme') || 'default');
-  const [appLang, setAppLang] = useState<'bn' | 'en'>(() => (localStorage.getItem('app-lang') as 'bn' | 'en') || 'bn');
-  const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem('app-font-size') || '16'));
-  const [transcriptionMode, setTranscriptionMode] = useState<'normal' | 'pro'>(() => (localStorage.getItem('app-transcription-mode') as 'normal' | 'pro') || 'pro');
-
-  useEffect(() => {
-    localStorage.setItem('app-theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem('app-lang', appLang);
-  }, [appLang]);
-
-  useEffect(() => {
-    localStorage.setItem('app-font-size', fontSize.toString());
-  }, [fontSize]);
-
-  useEffect(() => {
-    localStorage.setItem('app-transcription-mode', transcriptionMode);
-  }, [transcriptionMode]);
+  const theme = useThemeStore(state => state.theme);
+  const setTheme = useThemeStore(state => state.setTheme);
+  const appLang = useThemeStore(state => state.appLang);
+  const setAppLang = useThemeStore(state => state.setAppLang);
+  const fontSize = useThemeStore(state => state.fontSize);
+  const setFontSize = useThemeStore(state => state.setFontSize);
+  const transcriptionMode = useThemeStore(state => state.transcriptionMode);
+  const setTranscriptionMode = useThemeStore(state => state.setTranscriptionMode);
 
   const isDark = theme === 'soft-dark';
   const t = translations[appLang];

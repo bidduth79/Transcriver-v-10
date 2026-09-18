@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { YouTubeVideo } from '../../../types/youtube';
 import { formatDate } from '../utils/formatters';
 
@@ -12,12 +13,12 @@ export const useVideoFilter = (queueState: any) => {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [settingsUpdateTrigger, setSettingsUpdateTrigger] = useState(0);
 
+  const ytSettingsChanged = useAppStore(state => state.ytSettingsChanged);
+
   // Listen for settings change to re-evaluate keywords filter
   useEffect(() => {
-    const handleSettingsUpdate = () => setSettingsUpdateTrigger(prev => prev + 1);
-    window.addEventListener('yt_settings_changed', handleSettingsUpdate);
-    return () => window.removeEventListener('yt_settings_changed', handleSettingsUpdate);
-  }, []);
+    setSettingsUpdateTrigger(prev => prev + 1);
+  }, [ytSettingsChanged]);
 
   const filterVideos = (videos: YouTubeVideo[]) => {
     const defaultKeywords = 'টকশো, সীমান্ত, বিজিবি, বিজিবি মহাপরিচালক, ডিজি বিজিবি, বিএসএফ, বর্ডার, পুশইন, সীমান্ত হত্যা';
@@ -102,10 +103,12 @@ export const useVideoFilter = (queueState: any) => {
 
   const recentVideos = useMemo(() => {
     return filterVideos(queueState.queue).sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueState.queue, searchQuery, monitorFilter, selectedChannelFilter, selectedDateFilter, selectedTimeFilter, selectedDurationFilter, selectedStatusFilter, settingsUpdateTrigger]);
 
   const oldVideos = useMemo(() => {
     return filterVideos(queueState.history).sort((a, b) => (b.markedAt || 0) - (a.markedAt || 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueState.history, searchQuery, monitorFilter, selectedChannelFilter, selectedDateFilter, selectedTimeFilter, selectedDurationFilter, selectedStatusFilter, settingsUpdateTrigger]);
 
   const groupVideosByDate = (videos: YouTubeVideo[], dateExtractor: (v: YouTubeVideo) => string) => {

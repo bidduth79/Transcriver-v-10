@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { STORES, getAllFromStore, addToStore, deleteFromStore } from '../../../services/db';
+import { useAppStore } from '@/hooks/useAppStore';
 import { YouTubeApiKey } from '../../../types/youtube';
 
 export const useYouTubeApiKeys = () => {
@@ -43,14 +44,12 @@ export const useYouTubeApiKeys = () => {
 
   useEffect(() => {
     loadApiKeys();
-    const handleApiKeysUpdate = () => {
-      loadApiKeys();
-    };
-    window.addEventListener(`store-updated-${STORES.YOUTUBE_API_KEYS}`, handleApiKeysUpdate);
-    return () => {
-      window.removeEventListener(`store-updated-${STORES.YOUTUBE_API_KEYS}`, handleApiKeysUpdate);
-    };
   }, []);
+
+  const apiKeyUpdates = useAppStore(state => state.storeUpdates[STORES.YOUTUBE_API_KEYS]);
+  useEffect(() => {
+    loadApiKeys();
+  }, [apiKeyUpdates]);
 
   const addApiKey = async (key: YouTubeApiKey) => {
     await addToStore(STORES.YOUTUBE_API_KEYS, key);

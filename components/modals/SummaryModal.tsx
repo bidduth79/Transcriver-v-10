@@ -1,5 +1,5 @@
-
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { SearchAnalysisItem, saveSearchAnalysis, getSearchAnalysisHistory, deleteSearchAnalysisAction } from '../../services/SearchAnalysisHistory';
 import { logSystemActivity } from '../../services/SystemLogger';
 import { useSummaryAnalysis, useSummaryStats } from './hooks/useSummaryLogic';
@@ -18,8 +18,8 @@ interface SummaryModalProps {
   matchCount: number;
   fileMeta: any;
   addToast: (msg: string, type: any) => void;
-  onSeek?: (time: string) => void;
-  onModelUpdate?: () => void;
+  onSeek?: (time: number) => void;
+  onModelUpdate?: (models: any) => void;
   setIsAiLoading?: (loading: boolean) => void;
 }
 
@@ -98,15 +98,14 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
         setTimeout(() => handleSave(false), 500);
       }
     }
-    
-    const handleAnalysisUpdate = () => {
-      if (isOpen) {
-         getSearchAnalysisHistory().then(setHistory);
-      }
-    };
-    window.addEventListener(`store-updated-studio_analysis`, handleAnalysisUpdate);
-    return () => window.removeEventListener(`store-updated-studio_analysis`, handleAnalysisUpdate);
   }, [isOpen, searchTerm]);
+
+  const analysisUpdates = useAppStore(state => state.storeUpdates['studio_analysis']);
+  useEffect(() => {
+    if (isOpen) {
+       getSearchAnalysisHistory().then(setHistory);
+    }
+  }, [analysisUpdates, isOpen]);
 
   useEffect(() => {
     if (aiAnalysis && currentStats && !isAnalyzing) {

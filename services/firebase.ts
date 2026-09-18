@@ -24,10 +24,13 @@ const firebaseConfig = {
 
 const isConfigValid = !!firebaseConfig.apiKey;
 
+/** Whether Firebase is properly configured and initialized */
+export const isFirebaseConfigured = isConfigValid;
+
 // Initialize Firebase
-const app = isConfigValid ? initializeApp(firebaseConfig) : null as any;
-const db = isConfigValid ? getFirestore(app) : null as any;
-const auth = isConfigValid ? getAuth(app) : null as any;
+const app = isConfigValid ? initializeApp(firebaseConfig) : null;
+const db = isConfigValid ? getFirestore(app!) : null;
+const auth = isConfigValid ? getAuth(app!) : null;
 
 // Automatically sign in anonymously to allow access to Firestore data protected by auth rules
 export const authPromise = (isConfigValid && auth) 

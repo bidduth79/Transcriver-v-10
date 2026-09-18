@@ -101,7 +101,7 @@ export const MonitorVideoSection: React.FC<MonitorVideoSectionProps> = ({
                     
                     const newVideo = { 
                       ...video, 
-                      id: isCompleted ? Date.now().toString() + Math.random().toString(36).substr(2, 9) : video.id,
+                      id: isCompleted ? Date.now().toString() + Math.random().toString(36).substring(2, 11) : video.id,
                       title: newTitle,
                       status: initialStatus, 
                       progress: 0 

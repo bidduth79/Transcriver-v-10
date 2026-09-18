@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { STORES, getAllFromStore, addToStore, deleteFromStore } from '../../../services/db';
 import { YouTubeChannel } from '../../../types/youtube';
 
@@ -12,14 +13,12 @@ export const useYouTubeChannels = () => {
 
   useEffect(() => {
     loadChannels();
-    const handleChannelsUpdate = () => {
-      loadChannels();
-    };
-    window.addEventListener(`store-updated-${STORES.YOUTUBE_CHANNELS}`, handleChannelsUpdate);
-    return () => {
-      window.removeEventListener(`store-updated-${STORES.YOUTUBE_CHANNELS}`, handleChannelsUpdate);
-    };
   }, []);
+
+  const channelUpdates = useAppStore(state => state.storeUpdates[STORES.YOUTUBE_CHANNELS]);
+  useEffect(() => {
+    loadChannels();
+  }, [channelUpdates]);
 
   const addChannel = async (channel: YouTubeChannel) => {
     await addToStore(STORES.YOUTUBE_CHANNELS, channel);

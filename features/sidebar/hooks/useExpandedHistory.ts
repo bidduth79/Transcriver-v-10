@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { getSensitiveKeywords } from '../../../utils/sensitiveKeywords';
 
 export const useExpandedHistory = (
@@ -11,12 +12,11 @@ export const useExpandedHistory = (
   const observer = useRef<IntersectionObserver | null>(null);
   const [sensitiveKeywords, setSensitiveKeywordsList] = useState<string[]>([]);
 
+  const sensitiveKeywordsUpdated = useAppStore(state => state.sensitiveKeywordsUpdated);
+
   useEffect(() => {
     setSensitiveKeywordsList(getSensitiveKeywords());
-    const handleUpdate = () => setSensitiveKeywordsList(getSensitiveKeywords());
-    window.addEventListener('sensitive-keywords-updated', handleUpdate);
-    return () => window.removeEventListener('sensitive-keywords-updated', handleUpdate);
-  }, []);
+  }, [sensitiveKeywordsUpdated]);
 
   const bottomRef = useCallback((node: HTMLDivElement | null) => {
     if (observer.current) observer.current.disconnect();

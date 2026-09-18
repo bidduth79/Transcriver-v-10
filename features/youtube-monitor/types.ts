@@ -13,7 +13,7 @@ export interface YouTubeMonitorHeaderControlsProps {
   setIsSelectMode: (val: boolean) => void;
   clearSelection: () => void;
   selectedIds: string[];
-  filterRef: React.RefObject<HTMLDivElement>;
+  filterRef: React.RefObject<HTMLDivElement | null>;
   showFilterMenu: boolean;
   setShowFilterMenu: (val: boolean) => void;
   setShowChannelSettings: (val: boolean) => void;
@@ -35,7 +35,7 @@ export interface YouTubeMonitorHeaderControlsProps {
   setMonitorFilter: (val: 'all' | 'unread' | 'archive') => void;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
-  channelRef: React.RefObject<HTMLDivElement>;
+  channelRef: React.RefObject<HTMLDivElement | null>;
   showChannelSettings: boolean;
   newChannelTitle: string;
   setNewChannelTitle: (val: string) => void;
@@ -55,17 +55,17 @@ export interface YouTubeMonitorHeaderControlsProps {
   toggleAutoDownload: () => void;
   fetchVideos: () => void;
   isFetching: boolean;
-  monitorRef: React.RefObject<HTMLDivElement>;
+  monitorRef: React.RefObject<HTMLDivElement | null>;
   showMonitorSettings: boolean;
   showVoiceSettings: boolean;
   isVoiceEnabled: boolean;
   toggleVoice: (val: boolean) => void;
   voices: {voiceURI: string, name: string, lang: string}[];
   selectedVoiceURI: string;
-  selectVoice: (val: string) => void;
+  selectVoice: (uri: string) => void;
   announce: (text: string) => void;
   isSpeaking: boolean;
-  apiRef: React.RefObject<HTMLDivElement>;
+  apiRef: React.RefObject<HTMLDivElement | null>;
   showApiSettings: boolean;
   apiKeys: YouTubeApiKey[];
   newApiLabel: string;

@@ -25,6 +25,7 @@ export const useBatchProcessor = (
   const [hasBatchStarted, setHasBatchStarted] = useState(false);
   const [isBatchPaused, setIsBatchPaused] = useState(false);
   const isBatchPausedRef = useRef(false);
+  const prevBatchUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     isBatchPausedRef.current = isBatchPaused;
@@ -100,7 +101,10 @@ export const useBatchProcessor = (
     }
 
     setFile(currentFile);
+    // Revoke previous Object URL to prevent memory leak during batch processing
+    if (prevBatchUrlRef.current) URL.revokeObjectURL(prevBatchUrlRef.current);
     const url = URL.createObjectURL(currentFile);
+    prevBatchUrlRef.current = url;
     setFileUrl(url);
     setActiveHistoryId(null);
     setTranscriptMeta(null);
@@ -188,7 +192,7 @@ export const useBatchProcessor = (
       processNextBatchFile(newQueue, currentBatchIndex);
     }
     
-    if (newQueue.length <= 1) {
+    if (newQueue.length === 0) {
       cancelBatch();
     }
   };

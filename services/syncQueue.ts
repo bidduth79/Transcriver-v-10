@@ -31,6 +31,7 @@ export const processQueue = async () => {
             try {
                 if (task.target === 'firebase') {
                     await authPromise;
+                    if (!db) throw new Error("Firebase DB not initialized");
                     if (task.action === 'save') {
                         await setDoc(doc(db, task.storeName, task.id), task.payload);
                     } else if (task.action === 'delete') {

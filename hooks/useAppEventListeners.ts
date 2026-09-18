@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useAppStore } from './useAppStore';
 
 export const useAppEventListeners = (
   loadHistory: () => void,
@@ -6,33 +7,30 @@ export const useAppEventListeners = (
   addToast: (msg: string, type: 'error') => void,
   fileUrl: string | null
 ) => {
+  const storeUpdates = useAppStore(state => state.storeUpdates);
+  const activeApiKeyChanged = useAppStore(state => state.activeApiKeyChanged);
+  const appError = useAppStore(state => state.appError);
+
+  const studioHistoryUpdate = storeUpdates['studio_history'];
+  const apiKeysUpdate = storeUpdates['api_keys'];
+
+  useEffect(() => {
+    loadHistory();
+  }, [studioHistoryUpdate, loadHistory]);
+
+  useEffect(() => {
+    updateApiStats();
+  }, [apiKeysUpdate, activeApiKeyChanged, updateApiStats]);
+
+  useEffect(() => {
+    if (appError) {
+      addToast(appError, 'error');
+      useAppStore.getState().setAppError(null);
+    }
+  }, [appError, addToast]);
+
   useEffect(() => {
     loadHistory();
     updateApiStats();
-    
-    const handleHistoryUpdate = () => {
-      loadHistory();
-    };
-    
-    const handleApiKeysUpdate = () => {
-      updateApiStats();
-    };
-    
-    const handleAppError = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      addToast(customEvent.detail.message, 'error');
-    };
-    
-    window.addEventListener(`store-updated-studio_history`, handleHistoryUpdate);
-    window.addEventListener(`store-updated-api_keys`, handleApiKeysUpdate);
-    window.addEventListener(`active-api-key-changed`, handleApiKeysUpdate);
-    window.addEventListener('app-error', handleAppError);
-    
-    return () => {
-      window.removeEventListener(`store-updated-studio_history`, handleHistoryUpdate);
-      window.removeEventListener(`store-updated-api_keys`, handleApiKeysUpdate);
-      window.removeEventListener(`active-api-key-changed`, handleApiKeysUpdate);
-      window.removeEventListener('app-error', handleAppError);
-    };
-  }, [fileUrl, loadHistory, updateApiStats, addToast]);
+  }, [fileUrl, loadHistory, updateApiStats]);
 };

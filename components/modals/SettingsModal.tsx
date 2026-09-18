@@ -1,5 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { QuotaMonitor } from './QuotaMonitor';
 import { SettingsApiKeys } from './settings/SettingsApiKeys';
 import { SettingsKeywords } from './settings/SettingsKeywords';
@@ -59,24 +59,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
   if (!isOpen) return null;
 
   return (
-    <>
-      {/* Minimized Floating Widget */}
-      <div className={`fixed bottom-24 right-20 z-[120] animate-in slide-in-from-bottom-10 fade-in duration-300 ${isMinimized ? 'block' : 'hidden'}`}>
-         <div 
-           onClick={() => setIsMinimized(false)}
-           className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl border cursor-pointer hover:scale-105 transition-transform ${isDark ? 'bg-slate-900 border-white/20 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-         >
-            <div className={`w-3 h-3 rounded-full ${activeColors.primary}`}></div>
-            <span className="text-xs font-bold uppercase tracking-widest">{appLang === 'bn' ? 'সেটিংস' : 'Settings'}</span>
-            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-         </div>
-      </div>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Minimized Floating Widget */}
+          {isMinimized && (
+            <motion.div 
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="fixed bottom-24 right-20 z-[120]"
+            >
+               <div 
+                 onClick={() => setIsMinimized(false)}
+                 className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl border cursor-pointer hover:scale-105 transition-transform ${isDark ? 'bg-slate-900 border-white/20 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+               >
+                  <div className={`w-3 h-3 rounded-full ${activeColors.primary}`}></div>
+                  <span className="text-xs font-bold uppercase tracking-widest">{appLang === 'bn' ? 'সেটিংস' : 'Settings'}</span>
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+               </div>
+            </motion.div>
+          )}
 
-      {/* Full Modal */}
-      <div className={`fixed inset-0 z-[110] flex items-center justify-center p-0 bg-slate-950/60 backdrop-blur-xl animate-in fade-in duration-300 ${isMinimized ? 'hidden' : 'flex'}`}>
-      <div 
-        id="settings-modal-container"
-        className={`rounded-[3rem] border shadow-2xl overflow-hidden flex flex-col relative ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+          {/* Full Modal */}
+          {!isMinimized && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[110] flex items-center justify-center p-0 bg-slate-950/60 backdrop-blur-xl"
+            >
+              <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                id="settings-modal-container"
+                className={`rounded-[3rem] border shadow-2xl overflow-hidden flex flex-col relative ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
         style={{ 
             width: isMaximized ? '100vw' : `${size.width}px`, 
             height: isMaximized ? '100vh' : `${size.height}px`,
@@ -164,18 +183,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
           )}
         </div>
 
-        {!isMaximized && (
-            <div 
-            onMouseDown={startResizing}
-            className="absolute bottom-2 right-2 w-10 h-10 cursor-nwse-resize flex items-center justify-center opacity-20 hover:opacity-100 transition-opacity z-[200]"
-            >
-            <svg className="w-6 h-6 text-slate-400 rotate-90" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M22 22h-2v-2h2v2zm0-4h-2v-2h2v2zm-4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm-4 4h-2v-2h2v2zm8-8h-2v-2h2v2zm-12 8h-2v-2h2v2z"/>
-            </svg>
-            </div>
-        )}
-      </div>
-      </div>
-    </>
+          {/* Resize Handle */}
+          {!isMaximized && (
+             <div 
+               onMouseDown={startResizing}
+               className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize z-50 flex items-end justify-end p-1.5 opacity-50 hover:opacity-100 transition-opacity"
+             >
+               <svg className="w-4 h-4 text-slate-400 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 8h16M4 16h16" /></svg>
+             </div>
+          )}
+        </motion.div>
+        </motion.div>
+          )}
+        </>
+      )}
+    </AnimatePresence>
   );
 };

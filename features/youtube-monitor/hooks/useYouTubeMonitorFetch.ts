@@ -93,7 +93,7 @@ export function useYouTubeMonitorFetch(
                   };
 
                   const video = {
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
                     videoId: item.id.videoId,
                     channelId: channel.channelId,
                     channelTitle: channel.title,

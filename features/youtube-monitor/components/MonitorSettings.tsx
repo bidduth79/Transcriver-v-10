@@ -1,4 +1,5 @@
-import React from 'react';
+import * as React from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Save, Headphones, Zap, Layers, Video, FileAudio } from 'lucide-react';
 
@@ -18,6 +19,8 @@ export const MonitorSettings: React.FC<MonitorSettingsProps> = ({ isOpen, onClos
   const [videoFormat, setVideoFormat] = React.useState(localStorage.getItem('yt_default_video_format') || '720p');
   const [keywords, setKeywords] = React.useState(localStorage.getItem('yt_monitor_keywords') || 'টকশো, সীমান্ত, বিজিবি, বিজিবি মহাপরিচালক, ডিজি বিজিবি, বিএসএফ, বর্ডার, পুশইন, সীমান্ত হত্যা');
 
+  const ytSettingsChanged = useAppStore(state => state.ytSettingsChanged);
+
   React.useEffect(() => {
     const handleSettingsChange = () => {
       setBitrate(localStorage.getItem('yt_default_bitrate') || '16');
@@ -28,9 +31,8 @@ export const MonitorSettings: React.FC<MonitorSettingsProps> = ({ isOpen, onClos
       setVideoFormat(localStorage.getItem('yt_default_video_format') || '720p');
       setKeywords(localStorage.getItem('yt_monitor_keywords') || 'টকশো, সীমান্ত, বিজিবি, বিজিবি মহাপরিচালক, ডিজি বিজিবি, বিএসএফ, বর্ডার, পুশইন, সীমান্ত হত্যা');
     };
-    window.addEventListener('yt_settings_changed', handleSettingsChange);
-    return () => window.removeEventListener('yt_settings_changed', handleSettingsChange);
-  }, []);
+    handleSettingsChange();
+  }, [ytSettingsChanged]);
 
   const handleSave = () => {
     localStorage.setItem('yt_default_bitrate', bitrate);
@@ -40,7 +42,7 @@ export const MonitorSettings: React.FC<MonitorSettingsProps> = ({ isOpen, onClos
     localStorage.setItem('yt_default_audio_format', audioFormat);
     localStorage.setItem('yt_default_video_format', videoFormat);
     localStorage.setItem('yt_monitor_keywords', keywords);
-    window.dispatchEvent(new Event('yt_settings_changed'));
+    useAppStore.getState().triggerYtSettingsChanged();
     onClose();
   };
 

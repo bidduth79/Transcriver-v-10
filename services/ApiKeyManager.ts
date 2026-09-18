@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { getApiUrl } from './api.ts';
 import { getAllFromStore, addToStore, deleteFromStore } from './db.ts';
 import { STORES } from '../constants/storeNames.ts';
+import { useAppStore } from '../hooks/useAppStore';
 
 const ACTIVE_KEY_ID_STORAGE = 'manual_active_key_id';
 const ACTIVE_MODEL_STORAGE = 'manual_active_model';
@@ -65,7 +66,7 @@ export const getActiveProvider = async () => {
           } else {
             // Key not found in DB, clean up localStorage
             localStorage.removeItem(ACTIVE_KEY_ID_STORAGE);
-            window.dispatchEvent(new CustomEvent('active-api-key-changed'));
+            useAppStore.getState().triggerActiveApiKeyChanged();
           }
       }
     } catch (e) {
@@ -124,7 +125,7 @@ export const addUserApiKey = async (key: string, label: string) => {
   const allKeys = await getAllFromStore(STORES.API_KEYS);
   if (Array.isArray(allKeys) && allKeys.length === 1) {
       localStorage.setItem(ACTIVE_KEY_ID_STORAGE, newKey.id);
-      window.dispatchEvent(new CustomEvent('active-api-key-changed'));
+      useAppStore.getState().triggerActiveApiKeyChanged();
   }
   
   return newKey;
@@ -143,14 +144,14 @@ export const getAllApiKeys = async (): Promise<UserApiKey[]> => {
 
 export const setActiveApiKey = (id: string) => {
   localStorage.setItem(ACTIVE_KEY_ID_STORAGE, id);
-  window.dispatchEvent(new CustomEvent('active-api-key-changed'));
+  useAppStore.getState().triggerActiveApiKeyChanged();
 };
 
 export const deleteApiKey = async (id: string) => {
   await deleteFromStore(STORES.API_KEYS, id);
   if (localStorage.getItem(ACTIVE_KEY_ID_STORAGE) === id) {
     localStorage.removeItem(ACTIVE_KEY_ID_STORAGE);
-    window.dispatchEvent(new CustomEvent('active-api-key-changed'));
+    useAppStore.getState().triggerActiveApiKeyChanged();
   }
 };
 
@@ -186,7 +187,7 @@ export const logApiCall = (status: 'success' | 'error', model: string = 'unknown
     // keep only last 2000
     if (logs.length > 2000) logs.shift();
     localStorage.setItem('api_call_logs', JSON.stringify(logs));
-    window.dispatchEvent(new CustomEvent('api-call-logged'));
+    useAppStore.getState().triggerApiCallLogged();
   } catch (e) {
     console.error("Failed to log API call:", e);
   }

@@ -1,5 +1,5 @@
 
-export const fileToBase64 = (file) => {
+export const fileToBase64 = (file: Blob | File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -15,7 +15,7 @@ export const fileToBase64 = (file) => {
   });
 };
 
-export const splitFile = async (file, maxSizeMB = 50) => {
+export const splitFile = async (file: File | Blob, maxSizeMB = 50): Promise<Blob[]> => {
   const chunks = [];
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   let offset = 0;
@@ -29,7 +29,7 @@ export const splitFile = async (file, maxSizeMB = 50) => {
   return chunks;
 };
 
-export const downloadAsTxt = (text, fileName) => {
+export const downloadAsTxt = (text: string, fileName: string) => {
   const element = document.createElement("a");
   const file = new Blob([text], { type: 'text/plain;charset=utf-8' });
   element.href = URL.createObjectURL(file);

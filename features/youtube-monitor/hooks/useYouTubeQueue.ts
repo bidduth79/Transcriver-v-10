@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { STORES, getAllFromStore, addToStore, deleteFromStore } from '../../../services/db';
-import { YouTubeVideo, QueueState } from '../../../types/youtube';
+import { YouTubeVideo, QueueState, YouTubeChannel } from '../../../types/youtube';
 
 export const useYouTubeQueue = () => {
   const [queueState, setQueueState] = useState<QueueState>({
@@ -45,7 +46,7 @@ export const useYouTubeQueue = () => {
           if (v.status === 'downloading' || v.status === 'transcribing') {
             v.status = 'pending';
             v.progress = 0;
-            addToStore(STORES.YOUTUBE_QUEUE, v).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'কিউ আপডেট করতে ব্যর্থ: ' + err.message } })));
+            addToStore(STORES.YOUTUBE_QUEUE, v).catch(err => useAppStore.getState().setAppError('কিউ আপডেট করতে ব্যর্থ: ' + err.message));
           }
           validQueue.push(v);
         }
@@ -82,17 +83,12 @@ export const useYouTubeQueue = () => {
     }
 
     loadQueue();
-
-    const handleQueueUpdate = () => {
-      loadQueue();
-    };
-
-    window.addEventListener(`store-updated-${STORES.YOUTUBE_QUEUE}`, handleQueueUpdate);
-
-    return () => {
-      window.removeEventListener(`store-updated-${STORES.YOUTUBE_QUEUE}`, handleQueueUpdate);
-    };
   }, []);
+
+  const queueUpdates = useAppStore(state => state.storeUpdates[STORES.YOUTUBE_QUEUE]);
+  useEffect(() => {
+    loadQueue();
+  }, [queueUpdates]);
 
   // Midnight reset logic
   useEffect(() => {
@@ -121,13 +117,13 @@ export const useYouTubeQueue = () => {
       
       if (inQueue) {
         const updatedVideo = { ...inQueue, ...updates };
-        addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'ভিডিও আপডেট করতে ব্যর্থ: ' + err.message } })));
+        addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => useAppStore.getState().setAppError('ভিডিও আপডেট করতে ব্যর্থ: ' + err.message));
         return { ...prev, queue: prev.queue.map(v => v.id === id ? updatedVideo : v) };
       }
       
       if (inHistory) {
         const updatedVideo = { ...inHistory, ...updates };
-        addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'হিস্টোরি আপডেট করতে ব্যর্থ: ' + err.message } })));
+        addToStore(STORES.YOUTUBE_QUEUE, updatedVideo).catch(err => useAppStore.getState().setAppError('হিস্টোরি আপডেট করতে ব্যর্থ: ' + err.message));
         return { ...prev, history: prev.history.map(v => v.id === id ? updatedVideo : v) };
       }
       
@@ -169,7 +165,7 @@ export const useYouTubeQueue = () => {
         const existingInQueue = prev.queue.find(v => v.videoId === video.videoId);
         if (existingInQueue) {
           const updatedQueue = prev.queue.map(v => v.videoId === video.videoId ? video : v);
-          addToStore(STORES.YOUTUBE_QUEUE, video).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'কিউতে ভিডিও যোগ করতে ব্যর্থ: ' + err.message } })));
+          addToStore(STORES.YOUTUBE_QUEUE, video).catch(err => useAppStore.getState().setAppError('কিউতে ভিডিও যোগ করতে ব্যর্থ: ' + err.message));
           return { ...prev, queue: updatedQueue };
         }
         
@@ -178,12 +174,12 @@ export const useYouTubeQueue = () => {
         const existingInQueue = prev.queue.find(v => v.id === video.id);
         if (existingInQueue) {
           const updatedQueue = prev.queue.map(v => v.id === video.id ? video : v);
-          addToStore(STORES.YOUTUBE_QUEUE, video).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'কিউতে ভিডিও আপডেট করতে ব্যর্থ: ' + err.message } })));
+          addToStore(STORES.YOUTUBE_QUEUE, video).catch(err => useAppStore.getState().setAppError('কিউতে ভিডিও আপডেট করতে ব্যর্থ: ' + err.message));
           return { ...prev, queue: updatedQueue };
         }
       }
       
-      addToStore(STORES.YOUTUBE_QUEUE, video).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'কিউতে ভিডিও যোগ করতে ব্যর্থ: ' + err.message } })));
+      addToStore(STORES.YOUTUBE_QUEUE, video).catch(err => useAppStore.getState().setAppError('কিউতে ভিডিও যোগ করতে ব্যর্থ: ' + err.message));
       return { ...prev, queue: [...prev.queue, video] };
     });
   };
@@ -225,7 +221,7 @@ export const useYouTubeQueue = () => {
       const newQueue = prev.queue.map(v => {
         if (ids.includes(v.id)) {
           const updated = { ...v, status, progress: status === 'pending' ? 0 : v.progress };
-          addToStore(STORES.YOUTUBE_QUEUE, updated).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message } })));
+          addToStore(STORES.YOUTUBE_QUEUE, updated).catch(err => useAppStore.getState().setAppError('স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message));
           return updated;
         }
         return v;
@@ -272,7 +268,7 @@ export const useYouTubeQueue = () => {
       const newQueue = prev.queue.map(v => {
         if (v.status === 'error' || v.status === 'failed') {
           const updated = { ...v, status: 'pending' as any, progress: 0, error: undefined, retryCount: 0 };
-          addToStore(STORES.YOUTUBE_QUEUE, updated).catch(err => window.dispatchEvent(new CustomEvent('app-error', { detail: { message: 'স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message } })));
+          addToStore(STORES.YOUTUBE_QUEUE, updated).catch(err => useAppStore.getState().setAppError('স্ট্যাটাস আপডেট করতে ব্যর্থ: ' + err.message));
           return updated;
         }
         return v;

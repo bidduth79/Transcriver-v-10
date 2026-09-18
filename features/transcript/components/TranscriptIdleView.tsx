@@ -9,7 +9,7 @@ interface TranscriptIdleViewProps {
   setIsSidebarOpen: (open: boolean) => void;
   processTranscription: () => void;
   logoOffset: { x: number; y: number };
-  logoContainerRef: React.RefObject<HTMLDivElement>;
+  logoContainerRef: React.RefObject<HTMLDivElement | null>;
   handleLogoMouseMove: (e: any) => void;
   handleLogoMouseLeave: () => void;
 }

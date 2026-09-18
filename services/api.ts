@@ -10,7 +10,7 @@ import { FIREBASE_SYNCED_STORES } from '../constants/storeNames';
 export const checkCloudConnection = async (): Promise<{ status: 'online' | 'offline' | 'auth-error', message: string }> => {
   try {
       await authPromise;
-      if (!auth.currentUser) return { status: 'auth-error', message: 'Not logged in' };
+      if (!auth || !auth.currentUser) return { status: 'auth-error', message: 'Not logged in' };
       return { status: 'online', message: 'Connected' };
   } catch(e) {
       return { status: 'offline', message: 'Connection failed' };
@@ -32,6 +32,7 @@ export const fetchConfigDual = async (docName: string) => {
     
     try {
         await authPromise;
+        if (!db) return null;
         const docRef = doc(db, "config", docName);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -77,7 +78,9 @@ export const performMasterSync = async (onProgress: (msg: string, p: number) => 
     }
 };
 
-// Aliases for compatibility
-export const syncAllLocalToCloud = performMasterSync;
-export const restoreAllCloudToLocal = performMasterSync;
-export const restoreCloudData = performMasterSync;
+// NOTE: performMasterSync performs BIDIRECTIONAL merge (reads from all sources, deduplicates, writes back).
+// Previously had misleading aliases (syncAllLocalToCloud, restoreAllCloudToLocal, restoreCloudData).
+// All callers should use performMasterSync directly.
+export const syncAllLocalToCloud = performMasterSync; // Kept for backward compatibility — actually performs bidirectional sync
+export const restoreAllCloudToLocal = performMasterSync; // Kept for backward compatibility — actually performs bidirectional sync
+export const restoreCloudData = performMasterSync; // Kept for backward compatibility — actually performs bidirectional sync

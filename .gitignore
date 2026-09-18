@@ -40,3 +40,6 @@ get-console.cjs
 # Unused directories/files
 migrated_prompt_history/
 *.txt
+
+# Test PHP files
+test*.php

@@ -38,7 +38,7 @@ export const loadAudioFromStore = async (
       const blob = await res.blob();
       
       // Free memory early
-      audioData.base64 = null;
+      audioData.base64 = undefined;
       
       const fileName = item.fileName || item.title || 'audio';
       const fileObj = new File([blob], fileName, { type: mimeType });
@@ -46,7 +46,7 @@ export const loadAudioFromStore = async (
       setFile(fileObj);
       setFileMeta({ 
         name: fileName, 
-        duration: item.duration, 
+        duration: item.duration || '0:00', 
         type: mimeType, 
         size: (blob.size / (1024 * 1024)).toFixed(2) + ' MB', 
         date: new Date().toISOString() 

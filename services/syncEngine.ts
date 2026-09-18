@@ -1,113 +1,115 @@
-import { db, auth, authPromise } from './firebase';
+import { db, auth, authPromise, isFirebaseConfigured } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { getApiUrl } from '../utils/config';
 import { supabase } from './supabase';
+import { isSupabaseConfigured } from './supabase';
 import { addToQueue } from './syncQueue';
 import { get, set } from 'idb-keyval';
 import { FIREBASE_SYNCED_STORES } from '../constants/storeNames';
 
+// --- Helper async functions (replaces `new Promise(async ...)` anti-pattern) ---
+
+const fetchFromIdb = async (storeName: string): Promise<any[]> => {
+  try {
+    const keys = await import('idb-keyval').then(m => m.keys());
+    const storeKeys = keys.filter(k => typeof k === 'string' && k.startsWith(`${storeName}_`));
+    const dataPromises = storeKeys.map(k => get(k as string));
+    const data = await Promise.all(dataPromises);
+    return data.filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+};
+
+const fetchFromLocalApi = async (storeName: string): Promise<any[]> => {
+  let allLocalData: any[] = [];
+  try {
+    let page = 1;
+    const limit = 200; // Safe chunk size
+
+    while (true) {
+      const url = getApiUrl(`api.php?action=get&store=${storeName}&page=${page}&limit=${limit}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const text = await response.text();
+        try {
+          const data = JSON.parse(text);
+          if (Array.isArray(data)) {
+            const items = data.map((row: any) => row.data || row);
+            allLocalData = allLocalData.concat(items);
+            if (items.length < limit) break; // Reached the end
+          } else {
+            break; // Invalid format
+          }
+        } catch (jsonErr) {
+          console.warn(`[Local Fetch] Invalid JSON for ${storeName} on page ${page}`);
+          break;
+        }
+      } else {
+        break; // HTTP error
+      }
+      page++;
+    }
+    return allLocalData;
+  } catch (e) {
+    return allLocalData;
+  }
+};
+
+const fetchFromFirebase = async (storeName: string): Promise<any[]> => {
+  if (!isFirebaseConfigured || !db) return [];
+  try {
+    await authPromise;
+    const querySnapshot = await getDocs(collection(db, storeName));
+    return querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    return [];
+  }
+};
+
+const fetchFromSupabase = async (storeName: string): Promise<any[]> => {
+  if (!isSupabaseConfigured) return [];
+  try {
+    let allSupabaseData: any[] = [];
+    let from = 0;
+    const limit = 50;
+
+    while (true) {
+      const { data, error } = await supabase.from(storeName).select('*').range(from, from + limit - 1);
+
+      if (error) {
+        console.error(`[Supabase Fetch] Error for ${storeName}:`, error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        allSupabaseData = allSupabaseData.concat(data);
+        if (data.length < limit) break;
+        from += limit;
+      } else {
+        break;
+      }
+    }
+    return allSupabaseData.map((row: any) => row.data || row);
+  } catch (e) {
+    return [];
+  }
+};
+
 // TRIPLE-SYNC READ
 export const fetchDataDual = async (storeName: string) => {
-  const promises = [];
-  
-  // 1. Local IndexedDB Fetch (Instant Cache)
-  const idbFetch = new Promise(async (resolve) => {
-     try {
-       const keys = await import('idb-keyval').then(m => m.keys());
-       const storeKeys = keys.filter(k => typeof k === 'string' && k.startsWith(`${storeName}_`));
-       const dataPromises = storeKeys.map(k => get(k as string));
-       const data = await Promise.all(dataPromises);
-       resolve(data.filter(Boolean));
-     } catch(e) {
-       resolve([]);
-     }
-  });
-  promises.push(idbFetch);
-
-  // 2. XAMPP Local API Fetch (Paginated to prevent OOM)
-  const localFetch = new Promise(async (resolve) => {
-    let allLocalData: any[] = [];
-    try {
-      let page = 1;
-      const limit = 200; // Safe chunk size
-      
-      while (true) {
-        const url = getApiUrl(`api.php?action=get&store=${storeName}&page=${page}&limit=${limit}`);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); 
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const text = await response.text();
-          try {
-              const data = JSON.parse(text);
-              if (Array.isArray(data)) {
-                  const items = data.map((row: any) => row.data || row);
-                  allLocalData = allLocalData.concat(items);
-                  if (items.length < limit) break; // Reached the end
-              } else {
-                  break; // Invalid format
-              }
-          } catch (jsonErr) {
-              console.warn(`[Local Fetch] Invalid JSON for ${storeName} on page ${page}`);
-              break;
-          }
-        } else {
-          break; // HTTP error
-        }
-        page++;
-      }
-      resolve(allLocalData);
-    } catch (e) {
-      resolve(typeof allLocalData !== 'undefined' ? allLocalData : []);
-    }
-  });
-  promises.push(localFetch);
+  const promises: Promise<any[]>[] = [
+    fetchFromIdb(storeName),
+    fetchFromLocalApi(storeName),
+  ];
 
   if (FIREBASE_SYNCED_STORES.includes(storeName)) {
-    // 3. Firebase Fetch
-    const firebaseFetch = new Promise(async (resolve) => {
-      try {
-        await authPromise;
-        const querySnapshot = await getDocs(collection(db, storeName));
-        const cloudData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        resolve(cloudData);
-      } catch (e) {
-        resolve([]);
-      }
-    });
-    promises.push(firebaseFetch);
-
-    // 4. Supabase Fetch
-    const supabaseFetch = new Promise(async (resolve) => {
-      try {
-        let allSupabaseData: any[] = [];
-        let from = 0;
-        const limit = 50; 
-        
-        while (true) {
-          const { data, error } = await supabase.from(storeName).select('*').range(from, from + limit - 1);
-          
-          if (error) {
-             console.error(`[Supabase Fetch] Error for ${storeName}:`, error);
-             break;
-          }
-          
-          if (data && data.length > 0) {
-             allSupabaseData = allSupabaseData.concat(data);
-             if (data.length < limit) break;
-             from += limit;
-          } else {
-             break;
-          }
-        }
-        resolve(allSupabaseData.map((row: any) => row.data || row));
-      } catch (e) {
-        resolve([]);
-      }
-    });
-    promises.push(supabaseFetch);
+    promises.push(fetchFromFirebase(storeName));
+    promises.push(fetchFromSupabase(storeName));
   }
 
   const results = await Promise.all(promises);
@@ -154,24 +156,28 @@ export const saveDataDual = async (storeName: string, data: any) => {
   );
 
   if (isSyncedStore) {
-    // 3. Firebase Write
-    promises.push(
-      authPromise.then(() => setDoc(doc(db, storeName, id), payload))
-        .catch(e => {
-            console.warn("Firebase save failed, queuing...", e.message);
-            addToQueue('firebase', 'save', storeName, id, payload);
-        })
-    );
+    // 3. Firebase Write (with null guard)
+    if (isFirebaseConfigured && db) {
+      promises.push(
+        authPromise.then(() => setDoc(doc(db!, storeName, id), payload))
+          .catch(e => {
+              console.warn("Firebase save failed, queuing...", e.message);
+              addToQueue('firebase', 'save', storeName, id, payload);
+          })
+      );
+    }
 
-    // 4. Supabase Write
-    promises.push(
-      Promise.resolve(supabase.from(storeName).upsert({ id: id, data: payload })).then(({ error }) => {
-          if (error) throw error;
-      }).catch(e => {
-          console.warn("Supabase save failed, queuing...", e.message);
-          addToQueue('supabase', 'save', storeName, id, payload);
-      })
-    );
+    // 4. Supabase Write (with config guard)
+    if (isSupabaseConfigured) {
+      promises.push(
+        Promise.resolve(supabase.from(storeName).upsert({ id: id, data: payload })).then(({ error }: any) => {
+            if (error) throw error;
+        }).catch((e: any) => {
+            console.warn("Supabase save failed, queuing...", e.message);
+            addToQueue('supabase', 'save', storeName, id, payload);
+        })
+      );
+    }
   }
 
   await Promise.allSettled(promises);
@@ -197,16 +203,22 @@ export const deleteDataDual = async (storeName: string, id: string) => {
   );
 
   if (isSyncedStore) {
-    promises.push(
-      authPromise.then(() => deleteDoc(doc(db, storeName, id)))
-        .catch(e => addToQueue('firebase', 'delete', storeName, id))
-    );
+    // Firebase delete (with null guard)
+    if (isFirebaseConfigured && db) {
+      promises.push(
+        authPromise.then(() => deleteDoc(doc(db!, storeName, id)))
+          .catch(e => addToQueue('firebase', 'delete', storeName, id))
+      );
+    }
 
-    promises.push(
-      Promise.resolve(supabase.from(storeName).delete().eq('id', id)).then(({ error }) => {
-          if (error) throw error;
-      }).catch(e => addToQueue('supabase', 'delete', storeName, id))
-    );
+    // Supabase delete (with config guard)
+    if (isSupabaseConfigured) {
+      promises.push(
+        Promise.resolve(supabase.from(storeName).delete().eq('id', id)).then(({ error }: any) => {
+            if (error) throw error;
+        }).catch((e: any) => addToQueue('supabase', 'delete', storeName, id))
+      );
+    }
   }
 
   await Promise.allSettled(promises);

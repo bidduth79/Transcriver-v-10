@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { getSensitiveKeywords } from '../../../utils/sensitiveKeywords';
 
 export const useTranscriptScroll = (
@@ -62,27 +63,22 @@ export const useTranscriptScroll = (
     scrollContainerRef.current?.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
   };
 
-  // Sync scroll to audio
+  // Sync scroll with active segment
+  const flooredAudioTime = Math.floor(audioCurrentTime);
+  
   useEffect(() => {
     if (!isUserScrolling && isSynced && isKaraokeEnabled && (status === 'completed' || status === 'processing')) {
       const activeEl = document.getElementById('active-transcript-segment');
-      if (activeEl) {
+      if (activeEl && scrollContainerRef.current) {
         setProgrammaticScroll();
         const container = scrollContainerRef.current;
-        if (container) {
-          const containerRect = container.getBoundingClientRect();
-          const activeRect = activeEl.getBoundingClientRect();
-          // Calculate how far the active element is from the top of the container's scrollable area
-          const relativeTop = activeRect.top - containerRect.top + container.scrollTop;
-          
-          container.scrollTo({
-            top: relativeTop - containerRect.height / 2 + activeRect.height / 2,
-            behavior: 'smooth'
-          });
-        }
+        const elementRect = activeEl.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const offset = elementRect.top - containerRect.top + container.scrollTop - (container.clientHeight / 2) + (activeEl.clientHeight / 2);
+        container.scrollTo({ top: offset, behavior: 'smooth' });
       }
     }
-  }, [Math.floor(audioCurrentTime), isSynced, status, isKaraokeEnabled, transcript, isUserScrolling]);
+  }, [flooredAudioTime, isSynced, status, isKaraokeEnabled, transcript, isUserScrolling]);
 
   useEffect(() => {
     return () => {
@@ -100,19 +96,13 @@ export const useTranscriptScroll = (
     if (matchCount > 0 && searchTerm) {
       const activeId = `match-${currentMatchIndex}`;
       const element = document.getElementById(activeId);
-      if (element) {
+      if (element && scrollContainerRef.current) {
         setProgrammaticScroll();
         const container = scrollContainerRef.current;
-        if (container) {
-          const containerRect = container.getBoundingClientRect();
-          const activeRect = element.getBoundingClientRect();
-          const relativeTop = activeRect.top - containerRect.top + container.scrollTop;
-          
-          container.scrollTo({
-            top: relativeTop - containerRect.height / 2 + activeRect.height / 2,
-            behavior: 'smooth'
-          });
-        }
+        const elementRect = element.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const offset = elementRect.top - containerRect.top + container.scrollTop - (container.clientHeight / 2) + (element.clientHeight / 2);
+        container.scrollTo({ top: offset, behavior: 'smooth' });
       }
     }
   }, [currentMatchIndex, matchCount, searchTerm]);
@@ -248,17 +238,11 @@ export const useLogoAnimation = () => {
 export const useSensitiveKeywords = (transcript: string) => {
   const [sensitiveKeywords, setSensitiveKeywordsList] = useState<string[]>([]);
 
-  useEffect(() => {
-    // Load initial keywords
-    setSensitiveKeywordsList(getSensitiveKeywords());
+  const sensitiveKeywordsUpdated = useAppStore(state => state.sensitiveKeywordsUpdated);
 
-    // Listen for updates
-    const handleUpdate = () => {
-      setSensitiveKeywordsList(getSensitiveKeywords());
-    };
-    window.addEventListener('sensitive-keywords-updated', handleUpdate);
-    return () => window.removeEventListener('sensitive-keywords-updated', handleUpdate);
-  }, []);
+  useEffect(() => {
+    setSensitiveKeywordsList(getSensitiveKeywords());
+  }, [sensitiveKeywordsUpdated]);
 
   const sensitiveMatches = useMemo(() => {
     if (!transcript || sensitiveKeywords.length === 0) return [];

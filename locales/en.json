@@ -1,0 +1,8 @@
+{
+  "welcome": "Welcome to Transcriver",
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "An error occurred in the application.",
+    "retry": "Try again"
+  }
+}

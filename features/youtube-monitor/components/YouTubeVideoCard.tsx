@@ -3,15 +3,12 @@ import { YouTubeVideo } from '../../../types/youtube';
 import { STORES, getFromStore, addToStore, getAllFromStore } from '../../../services/db';
 import { getApiUrl } from '../../../services/api';
 import { Play, Clock, Download, ChevronDown, Video, Headphones, Copy, CheckCircle2, X, Loader2, Bot, RefreshCw, FileText } from 'lucide-react';
+import { useAppStore } from '@/hooks/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConfirmModal } from '../../../components/modals/ConfirmModal';
-import Swal from 'sweetalert2';
 import { copyToClipboard } from '../../../utils/clipboard';
 import { YouTubeVideoCardThumbnail } from './YouTubeVideoCardThumbnail';
 import { YouTubeVideoCardActions } from './YouTubeVideoCardActions';
-
-// Expose Swal to window for inline onclick handlers in HTML strings
-(window as any).Swal = Swal;
 
 import { getRelativeTime } from '../utils/formatters';
 import { showAlreadyDownloadedAlert } from '../utils/swalAlerts';
@@ -64,11 +61,11 @@ export const YouTubeVideoCard: React.FC<YouTubeVideoCardProps> = ({
 
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
 
+  const ytSettingsChanged = useAppStore(state => state.ytSettingsChanged);
+
   React.useEffect(() => {
-    const handleSettingsChange = () => forceUpdate();
-    window.addEventListener('yt_settings_changed', handleSettingsChange);
-    return () => window.removeEventListener('yt_settings_changed', handleSettingsChange);
-  }, []);
+    forceUpdate();
+  }, [ytSettingsChanged]);
 
   React.useEffect(() => {
     const checkTranscript = async () => {
@@ -157,10 +154,10 @@ export const YouTubeVideoCard: React.FC<YouTubeVideoCardProps> = ({
         onUpdateVideo={onUpdateVideo}
         addToast={addToast}
         isDark={isDark}
-        isVisited={isVisited}
-        isCompleted={isCompleted}
-        isWaiting={isWaiting}
-        isError={isError}
+        isVisited={isVisited || false}
+        isCompleted={isCompleted || false}
+        isWaiting={isWaiting || false}
+        isError={isError || false}
       />
       
       <div className="p-4 flex flex-col flex-1">
@@ -217,12 +214,12 @@ export const YouTubeVideoCard: React.FC<YouTubeVideoCardProps> = ({
           onLoadTranscript={onLoadTranscript}
           onStartTranscription={onStartTranscription}
           isDark={isDark}
-          isVisited={isVisited}
-          isDownloading={isDownloading}
-          isWaiting={isWaiting}
-          isCompleted={isCompleted}
-          isError={isError}
-          isPending={isPending}
+          isVisited={isVisited || false}
+          isDownloading={isDownloading || false}
+          isWaiting={isWaiting || false}
+          isCompleted={isCompleted || false}
+          isError={isError || false}
+          isPending={isPending || false}
           hasTranscript={hasTranscript}
           currentFormatLabel={currentFormatLabel}
           defaultDownloadType={defaultDownloadType}

@@ -1,5 +1,5 @@
 
-export const formatTime = (s) => {
+export const formatTime = (s: number) => {
   const mins = Math.floor(s / 60);
   const secs = Math.floor(s % 60);
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
@@ -20,7 +20,7 @@ export const parseISO8601Duration = (duration: string) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-export const formatDurationDetailed = (totalSeconds) => {
+export const formatDurationDetailed = (totalSeconds: number) => {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = Math.floor(totalSeconds % 60);
@@ -31,7 +31,7 @@ export const formatDurationDetailed = (totalSeconds) => {
   return `${m}m ${s}s`;
 };
 
-export const secondsToTimestamp = (totalSeconds) => {
+export const secondsToTimestamp = (totalSeconds: number) => {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
@@ -42,7 +42,7 @@ export const secondsToTimestamp = (totalSeconds) => {
   return `${hh}:${mm}:${ss}.${ms}`;
 };
 
-export const timeToSeconds = (timeStr) => {
+export const timeToSeconds = (timeStr: string) => {
   const parts = timeStr.split(':').map(Number);
   if (parts.length !== 3) return 0;
   return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);

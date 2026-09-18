@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { YouTubeInput } from '../../features/tools/YouTubeInput';
 import { ConvertMediaTool } from './tools/ConvertMediaTool';
 import { CutMediaTool } from './tools/CutMediaTool';
@@ -21,9 +21,6 @@ interface ToolsModalProps {
 export const ToolsModal: React.FC<ToolsModalProps> = ({ 
   activeTool, onClose, isMinimized, setIsMinimized, isDark, activeColors, appLang, addToast, onFileSelect
 }) => {
-  const validTools = ['downloader', 'converter', 'video_cut', 'audio_cut'];
-  if (!activeTool || !validTools.includes(activeTool)) return null;
-
   const [currentTab, setCurrentTab] = useState<string>('downloader');
   
   // Cutter State
@@ -75,7 +72,8 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
     window.removeEventListener('mouseup', stopResizing);
   };
 
-  if (!activeTool) return null;
+  const validTools = ['downloader', 'converter', 'video_cut', 'audio_cut'];
+  if (!activeTool || !validTools.includes(activeTool)) return null;
 
   const handleDownloadSuccess = async (blob: Blob, fileName: string, mode?: string) => {
     try {
@@ -108,31 +106,48 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
   };
 
   return (
-    <>
+    <AnimatePresence>
       {/* Minimized Floating Widget - Visible ONLY when isMinimized is true */}
-      <div className={`fixed bottom-24 right-20 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-300 ${isMinimized ? 'block' : 'hidden'}`}>
-           <div 
-             onClick={() => setIsMinimized(false)}
-             className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border cursor-pointer hover:scale-105 transition-transform group ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-           >
-              <div className={`w-10 h-10 rounded-xl ${activeColors.primary} flex items-center justify-center text-white shadow-lg animate-pulse`}>
-                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-              </div>
-              <div className="flex flex-col">
-                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{appLang === 'bn' ? 'টুলস মিনিমাইজড' : 'TOOLS ACTIVE'}</span>
-                 <span className="text-xs font-bold">{appLang === 'bn' ? 'ক্লিক করে খুলুন' : 'Click to Maximize'}</span>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center ml-2">
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-              </div>
-           </div>
-        </div>
+      {isMinimized && (
+        <motion.div 
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 50, opacity: 0 }}
+          className="fixed bottom-24 right-20 z-[100]"
+        >
+             <div 
+               onClick={() => setIsMinimized(false)}
+               className={`flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border cursor-pointer hover:scale-105 transition-transform group ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+             >
+                <div className={`w-10 h-10 rounded-xl ${activeColors.primary} flex items-center justify-center text-white shadow-lg animate-pulse`}>
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </div>
+                <div className="flex flex-col">
+                   <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{appLang === 'bn' ? 'টুলস মিনিমাইজড' : 'TOOLS ACTIVE'}</span>
+                   <span className="text-xs font-bold">{appLang === 'bn' ? 'ক্লিক করে খুলুন' : 'Click to Maximize'}</span>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center ml-2">
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                </div>
+             </div>
+        </motion.div>
+      )}
 
       {/* Full Modal View - Hidden via CSS when minimized, keeping state intact */}
-      <div className={`fixed inset-0 z-[200] flex items-center justify-center p-0 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-300 ${isMinimized ? 'hidden' : 'flex'}`}>
-      <div 
-        id="tools-modal-container"
-        className={`rounded-[3rem] border shadow-2xl flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-300 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+      {!isMinimized && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] flex items-center justify-center p-0 bg-slate-950/70 backdrop-blur-md"
+        >
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            id="tools-modal-container"
+            className={`rounded-[3rem] border shadow-2xl flex flex-col overflow-hidden relative ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
         style={{ 
             width: isMaximized ? '100vw' : `${modalSize.width}px`, 
             height: isMaximized ? '100vh' : `${modalSize.height}px`,
@@ -263,11 +278,18 @@ export const ToolsModal: React.FC<ToolsModalProps> = ({
             )}
           </div>
         </div>
-        {!isMaximized && (
-            <div onMouseDown={startResizing} className="absolute bottom-2 right-2 w-10 h-10 cursor-nwse-resize flex items-center justify-center opacity-20 hover:opacity-100 transition-opacity z-[200]"><svg className="w-6 h-6 text-slate-400 rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M22 22h-2v-2h2v2zm0-4h-2v-2h2v2zm-4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm-4 4h-2v-2h2v2zm8-8h-2v-2h2v2zm-12 8h-2v-2h2v2z"/></svg></div>
-        )}
-      </div>
-      </div>
-    </>
+          {/* Resize Handle */}
+          {!isMaximized && (
+             <div 
+               onMouseDown={startResizing}
+               className="absolute bottom-0 right-0 w-8 h-8 cursor-se-resize z-50 flex items-end justify-end p-1.5 opacity-50 hover:opacity-100 transition-opacity"
+             >
+               <svg className="w-4 h-4 text-slate-400 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 8h16M4 16h16" /></svg>
+             </div>
+          )}
+        </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

@@ -1,7 +1,30 @@
 import React from 'react';
 import { TranscriptViewer } from '../TranscriptViewer';
 
-export const TranscriptContent = ({
+import { TranscriptMeta } from '../../../types';
+
+export interface TranscriptContentProps {
+  fontSize: number;
+  isDark: boolean;
+  t: any; // translation object
+  activeTranscriptSourceMeta: TranscriptMeta | null;
+  appLang: 'bn' | 'en';
+  transcriptSegments: any[];
+  audioCurrentTime: number;
+  searchTerm: string;
+  currentMatchIndex: number;
+  isSynced: boolean;
+  isKaraokeEnabled: boolean;
+  transcript: string;
+  sensitiveMatches: any[];
+  onSeek: (time: number) => void;
+  openProfile: (speakerId: string) => void;
+  onRenameSpeaker: (speakerId: string, currentName: string) => void;
+  transcriptEndRef: React.RefObject<HTMLDivElement>;
+  scrollElementRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   fontSize,
   isDark,
   t,
@@ -18,7 +41,8 @@ export const TranscriptContent = ({
   onSeek,
   openProfile,
   onRenameSpeaker,
-  transcriptEndRef
+  transcriptEndRef,
+  scrollElementRef
 }) => {
   return (
     <div style={{ fontSize: `${fontSize}px` }} className={`font-sans leading-relaxed text-sm md:text-base ${isDark ? 'text-white' : 'text-slate-800'}`}>
@@ -68,6 +92,7 @@ export const TranscriptContent = ({
           onSeek={onSeek}
           onSpeakerClick={openProfile}
           onRenameSpeaker={onRenameSpeaker}
+          scrollElementRef={scrollElementRef}
         />
         <div ref={transcriptEndRef} />
     </div>

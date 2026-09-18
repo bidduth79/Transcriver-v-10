@@ -1,31 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { getAllFromStore, deleteFromStore, addToStore, STORES } from '../services/db';
 import { HistoryItem } from '../types';
+import { useHistoryStore } from './useHistoryStore';
+import { useBroadcastSync, broadcastHistoryUpdate } from './useBroadcastSync';
 
 export const useHistory = (
   appLang: 'en' | 'bn',
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void,
   onHistoryItemDeleted: (id: string) => void
 ) => {
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
-    try {
-      const cached = sessionStorage.getItem('historyCache');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [isLoadingHistory, setIsLoadingHistory] = useState(() => {
-    return !sessionStorage.getItem('historyCache');
-  });
-  const [historyLimit, setHistoryLimit] = useState(20);
-  const [isHistoryFullscreen, setIsHistoryFullscreen] = useState(false);
-  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
-  const [histSearch, setHistSearch] = useState('');
-  const [debouncedHistSearch, setDebouncedHistSearch] = useState('');
-  const [histDateFilter, setHistDateFilter] = useState('');
-  const [histSentimentFilter, setHistSentimentFilter] = useState('All');
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const history = useHistoryStore(state => state.history);
+  const setHistory = useHistoryStore(state => state.setHistory);
+  const isLoadingHistory = useHistoryStore(state => state.isLoadingHistory);
+  const setIsLoadingHistory = useHistoryStore(state => state.setIsLoadingHistory);
+  const historyLimit = useHistoryStore(state => state.historyLimit);
+  const setHistoryLimit = useHistoryStore(state => state.setHistoryLimit);
+  const isHistoryFullscreen = useHistoryStore(state => state.isHistoryFullscreen);
+  const setIsHistoryFullscreen = useHistoryStore(state => state.setIsHistoryFullscreen);
+  const activeHistoryId = useHistoryStore(state => state.activeHistoryId);
+  const setActiveHistoryId = useHistoryStore(state => state.setActiveHistoryId);
+  const histSearch = useHistoryStore(state => state.histSearch);
+  const setHistSearch = useHistoryStore(state => state.setHistSearch);
+  const debouncedHistSearch = useHistoryStore(state => state.debouncedHistSearch);
+  const setDebouncedHistSearch = useHistoryStore(state => state.setDebouncedHistSearch);
+  const histDateFilter = useHistoryStore(state => state.histDateFilter);
+  const setHistDateFilter = useHistoryStore(state => state.setHistDateFilter);
+  const histSentimentFilter = useHistoryStore(state => state.histSentimentFilter);
+  const setHistSentimentFilter = useHistoryStore(state => state.setHistSentimentFilter);
+  const showFavoritesOnly = useHistoryStore(state => state.showFavoritesOnly);
+  const setShowFavoritesOnly = useHistoryStore(state => state.setShowFavoritesOnly);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,11 +53,14 @@ export const useHistory = (
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [history.length]);
+  }, []);  // Stable identity — does not depend on history.length
+
+  useBroadcastSync(loadHistory);
 
   const handleDeleteHistoryItem = async (id: string) => {
     await deleteFromStore(STORES.HISTORY, id);
     onHistoryItemDeleted(id);
+    broadcastHistoryUpdate();
     loadHistory();
     addToast(appLang === 'bn' ? 'ডিলিট করা হয়েছে' : 'Deleted', 'warning');
   };
@@ -98,6 +104,7 @@ export const useHistory = (
             await addToStore(STORES.HISTORY, item);
           }
         }
+        broadcastHistoryUpdate();
         loadHistory();
         addToast(appLang === 'bn' ? 'হিস্টোরি রিস্টোর সফল হয়েছে' : 'History restored successfully', 'success');
       } else {
@@ -121,13 +128,25 @@ export const useHistory = (
     return groups;
   }, []);
 
-  const filteredHistory = history.filter(item => {
-    const matchesSearch = (item.fileName || '').toLowerCase().includes(debouncedHistSearch.toLowerCase());
-    const matchesDate = histDateFilter ? (item.date && typeof item.date === 'string' ? item.date.startsWith(histDateFilter) : false) : true;
-    const matchesFavorite = showFavoritesOnly ? !!item?.isFavorite : true;
-    const matchesSentiment = histSentimentFilter === 'All' ? true : item?.bgbRemark === histSentimentFilter;
-    return matchesSearch && matchesDate && matchesFavorite && matchesSentiment;
-  });
+  const filteredHistory = useMemo(() => {
+    if (!debouncedHistSearch && !histDateFilter && !showFavoritesOnly && histSentimentFilter === 'All') return history;
+    const searchRegex = debouncedHistSearch.trim() ? new RegExp(debouncedHistSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
+
+    return history.filter(item => {
+      let matchesSearch = true;
+      if (searchRegex) {
+        const rawFileName = item.fileName || '';
+        const displayFileName = rawFileName.replace(/_/g, ' ').replace(/#/g, '').replace(/\s+/g, ' ').trim();
+        matchesSearch = searchRegex.test(rawFileName) || 
+                        searchRegex.test(displayFileName) || 
+                        searchRegex.test(item.transcript || item.text || '');
+      }
+      const matchesDate = histDateFilter ? (item.date && typeof item.date === 'string' ? item.date.startsWith(histDateFilter) : false) : true;
+      const matchesFavorite = showFavoritesOnly ? !!item?.isFavorite : true;
+      const matchesSentiment = histSentimentFilter === 'All' ? true : item?.bgbRemark === histSentimentFilter;
+      return matchesSearch && matchesDate && matchesFavorite && matchesSentiment;
+    });
+  }, [history, debouncedHistSearch, histDateFilter, showFavoritesOnly, histSentimentFilter]);
 
   return {
     history,

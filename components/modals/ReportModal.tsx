@@ -1,5 +1,6 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAppStore } from '@/hooks/useAppStore';
+import { logSystemActivity } from '../../services/SystemLogger';
 import { useReportAnalysis } from './hooks/useReportAnalysis';
 import { useReportActions, ReportItem } from './hooks/useReportActions';
 import { copyToClipboard } from '../../utils/clipboard';
@@ -15,7 +16,7 @@ interface ReportModalProps {
   fileMeta: any;
   searchTerm: string;
   addToast: (msg: string, type: any) => void;
-  onModelUpdate?: () => void;
+  onModelUpdate?: (models: any) => void;
   setIsAiLoading?: (loading: boolean) => void;
 }
 
@@ -78,13 +79,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         setViewMode('generate');
       }
     }
-    
-    const handleReportUpdate = () => {
-      if (isOpen) loadReportsFromDB();
-    };
-    window.addEventListener(`store-updated-studio_reports`, handleReportUpdate);
-    return () => window.removeEventListener(`store-updated-studio_reports`, handleReportUpdate);
   }, [isOpen, analysisData?.matchCount, loadReportsFromDB]);
+
+  const reportUpdates = useAppStore(state => state.storeUpdates['studio_reports']);
+  useEffect(() => {
+    if (isOpen) loadReportsFromDB();
+  }, [reportUpdates, isOpen, loadReportsFromDB]);
 
   const generateReport = () => {
     generateReportAction(analysisData);

@@ -164,7 +164,7 @@ export function getYouTubeMonitorProps(core: any) {
     addToast: core.addToast,
     onStartTranscription: core.processTranscription,
     isAppProcessing: core.status === 'processing',
-    onLoadTranscript: async (transcript: string, title: string, duration: string | number, historyId: string, channelName: string, date: string, videoId: string) => {
+    onLoadTranscript: async (transcript: string, title: string, duration: string | number, historyId?: string, channelName?: string, date?: string, videoId?: string) => {
       core.setTranscript(transcript);
       core.setStatus('completed');
       core.setTranscriptMeta({ name: title, duration, channelName, date });

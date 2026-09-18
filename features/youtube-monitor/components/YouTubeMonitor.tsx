@@ -26,7 +26,7 @@ interface YouTubeMonitorProps {
   activeColors: any;
   appLang: 'en' | 'bn';
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
-  onLoadTranscript?: (transcript: string, title: string, duration: string, historyId?: string, channelName?: string, date?: string, videoId?: string) => void;
+  onLoadTranscript?: (transcript: string, title: string, duration: string | number, historyId?: string, channelName?: string, date?: string, videoId?: string) => void | Promise<void>;
   onStartTranscription?: (file: Blob, metadata: { name: string, duration: string, size?: string, type?: string, channelName?: string, date?: string }, isAutoProcess?: boolean) => Promise<string | undefined>;
   isAppProcessing?: boolean;
 }
@@ -64,7 +64,7 @@ export const YouTubeMonitor: React.FC<YouTubeMonitorProps> = ({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showSettings]);
+  }, [showSettings, refs.filterRef, refs.channelRef, refs.monitorRef, refs.apiRef]);
 
   return (
     <motion.div

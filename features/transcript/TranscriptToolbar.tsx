@@ -39,7 +39,7 @@ export const TranscriptToolbar = ({
   const { handleDelete } = useTranscriptToolbar(setTranscript, setStatus, setActiveHistoryId);
 
   return (
-    <div className="relative px-4 md:px-6 py-2 md:py-3 border-b border-white/10 flex items-center justify-between bg-slate-900 z-20 shrink-0 gap-3 flex-wrap">
+    <div className="relative px-4 md:px-6 py-2 md:py-3 border-b border-white/10 flex items-center justify-between bg-slate-950 z-20 shrink-0 gap-3 flex-wrap">
       <div className="flex items-center space-x-3 group cursor-default shrink-0 mr-auto">
         <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${status === 'completed' ? 'bg-slate-500' : 'bg-white/20'}`}></div>
         <h2 className="text-sm md:text-base font-black text-white tracking-tight text-white/90 font-stylish-bn">{t.outputTranscript}</h2>
