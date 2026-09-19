@@ -7,10 +7,11 @@ import { useAppStore } from '../hooks/useAppStore';
 
 const ACTIVE_KEY_ID_STORAGE = 'manual_active_key_id';
 const ACTIVE_MODEL_STORAGE = 'manual_active_model';
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_MODEL = 'gemini-3.5-transcribe';
 
 export const AVAILABLE_MODELS = [
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: 'Default' },
+  { id: 'gemini-3.5-transcribe', label: 'Gemini 3.5 Transcribe', badge: 'Default & Accurate' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: 'Fast' },
   { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
   { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },

@@ -1,6 +1,7 @@
 import React from 'react';
 import { DownloadMenu } from '../../components/common/DownloadMenu';
 import { useTranscriptToolbar } from './hooks/useTranscriptToolbar';
+import { unicodeToBijoy, bijoyToUnicode, isUnicode } from '@abdalgolabs/ansi-unicode-converter';
 
 export const TranscriptToolbar = ({
   t,
@@ -135,14 +136,26 @@ export const TranscriptToolbar = ({
           {/* Encoding Toggle */}
           <div className="flex items-center bg-white/5 rounded-2xl p-0.5 border border-white/10">
             <button 
-              onClick={() => transformingType !== 'encoding' && transformTranscript('encoding')}
-              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${transformingType !== 'encoding' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/60'}`}
+              onClick={() => {
+                if (!isUnicode(transcript || '')) {
+                  setTranscript(bijoyToUnicode(transcript || ''));
+                  addToast(appLang === 'bn' ? 'ইউনিকোডে রূপান্তর করা হয়েছে' : 'Converted to Unicode', 'success');
+                }
+              }}
+              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${(transcript && isUnicode(transcript)) ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+              title={appLang === 'bn' ? 'ইউনিকোডে কনভার্ট করুন' : 'Convert to Unicode'}
             >
               ইউ
             </button>
             <button 
-              onClick={() => transformingType !== 'encoding' && transformTranscript('encoding')}
-              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${transformingType === 'encoding' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/60'}`}
+              onClick={() => {
+                if (transcript && isUnicode(transcript)) {
+                  setTranscript(unicodeToBijoy(transcript));
+                  addToast(appLang === 'bn' ? 'বিজয়ে রূপান্তর করা হয়েছে' : 'Converted to Bijoy', 'success');
+                }
+              }}
+              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${(!transcript || !isUnicode(transcript)) ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+              title={appLang === 'bn' ? 'বিজয়তে কনভার্ট করুন' : 'Convert to Bijoy'}
             >
               বি
             </button>

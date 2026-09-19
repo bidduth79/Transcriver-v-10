@@ -12,6 +12,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@abdalgolabs/ansi-unicode-converter": "^1.0.5",
     "@ffmpeg/core": "^0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
@@ -30,6 +31,7 @@
     "react-i18next": "^17.0.14",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.5.0",
+    "unicode2ascii": "^1.1.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
