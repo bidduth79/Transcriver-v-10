@@ -1,17 +1,35 @@
 export const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+    let reader: FileReader | null = new FileReader();
     reader.onloadend = () => {
+      if (!reader) {
+        reject(new Error("Reader was null"));
+        return;
+      }
       const result = reader.result as string;
       if (!result) {
         reject(new Error("Failed to convert audio blob to base64"));
+        reader = null;
         return;
       }
       const commaIdx = result.indexOf(',');
       const base64 = commaIdx >= 0 ? result.slice(commaIdx + 1) : result;
+      
+      // Aggressive cleanup
+      reader.onloadend = null;
+      reader.onerror = null;
+      reader = null;
+      
       resolve(base64);
     };
-    reader.onerror = reject;
+    reader.onerror = (e) => {
+      if (reader) {
+        reader.onloadend = null;
+        reader.onerror = null;
+        reader = null;
+      }
+      reject(e);
+    };
     reader.readAsDataURL(blob);
   });
 };

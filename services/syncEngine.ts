@@ -4,7 +4,7 @@ import { getApiUrl } from '../utils/config';
 import { supabase } from './supabase';
 import { isSupabaseConfigured } from './supabase';
 import { addToQueue } from './syncQueue';
-import { get, set } from 'idb-keyval';
+import { get, set, setMany } from 'idb-keyval';
 import { FIREBASE_SYNCED_STORES } from '../constants/storeNames';
 
 // --- Helper async functions (replaces `new Promise(async ...)` anti-pattern) ---
@@ -121,11 +121,18 @@ export const fetchDataDual = async (storeName: string) => {
     if (item && item.id) {
       const idStr = String(item.id);
       uniqueDataMap.set(idStr, { ...item, id: idStr });
-      set(`${storeName}_${idStr}`, { ...item, id: idStr }).catch(()=>null);
     }
   });
   
-  return Array.from(uniqueDataMap.values());
+  const uniqueDataArray = Array.from(uniqueDataMap.values());
+  
+  // Batch write to avoid IndexedDB lockup / OOM crash from 1000s of concurrent transactions
+  const entriesToSet = uniqueDataArray.map(item => [`${storeName}_${item.id}`, item] as [string, any]);
+  if (entriesToSet.length > 0) {
+    setMany(entriesToSet).catch(e => console.warn("Failed to batch save to idb-keyval", e));
+  }
+  
+  return uniqueDataArray;
 };
 
 // TRIPLE-SYNC WRITE
