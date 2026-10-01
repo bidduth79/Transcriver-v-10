@@ -6,6 +6,7 @@ import {
     showFileAlreadyTranscribedModal 
 } from './fileHandlerUtils';
 import { detectAudioMimeType } from './transcription/transcriptionUtils';
+import * as musicMetadata from 'music-metadata-browser';
 
 interface UseFileHandlerProps {
   appLang: string;
@@ -128,7 +129,27 @@ export const useFileHandler = ({
       };
 
       if (isOpus) {
-          finishMetadata("Unknown");
+          musicMetadata.parseBlob(selectedFile).then((metadata) => {
+              let durationStr = "Unknown";
+              if (metadata && metadata.format && metadata.format.duration) {
+                  const duration = metadata.format.duration;
+                  const mins = Math.floor(duration / 60);
+                  const secs = Math.floor(duration % 60);
+                  durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+              } else {
+                  const estimatedSecs = Math.max(10, Math.round(selectedFile.size / 4000));
+                  const mins = Math.floor(estimatedSecs / 60);
+                  const secs = Math.floor(estimatedSecs % 60);
+                  durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+              }
+              finishMetadata(durationStr);
+          }).catch((err) => {
+              console.warn("Metadata parsing failed:", err);
+              const estimatedSecs = Math.max(10, Math.round(selectedFile.size / 4000));
+              const mins = Math.floor(estimatedSecs / 60);
+              const secs = Math.floor(estimatedSecs % 60);
+              finishMetadata(`${mins}:${secs.toString().padStart(2, '0')}`);
+          });
           return;
       }
 
@@ -195,12 +216,34 @@ export const useFileHandler = ({
               const isOpusHistory = selectedFile.name.toLowerCase().endsWith('.opus') || selectedFile.type === 'audio/opus';
               
               if (isOpusHistory) {
-                  setFileMeta({
-                    name: selectedFile.name,
-                    size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
-                    duration: 'Unknown',
-                    type: selectedFile.type,
-                    date: new Date().toISOString()
+                  musicMetadata.parseBlob(selectedFile).then((metadata) => {
+                      let durationStr = "Unknown";
+                      if (metadata && metadata.format && metadata.format.duration) {
+                          const duration = metadata.format.duration;
+                          const mins = Math.floor(duration / 60);
+                          const secs = Math.floor(duration % 60);
+                          durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+                      } else {
+                          const estimatedSecs = Math.max(10, Math.round(selectedFile.size / 4000));
+                          const mins = Math.floor(estimatedSecs / 60);
+                          const secs = Math.floor(estimatedSecs % 60);
+                          durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+                      }
+                      setFileMeta({
+                        name: selectedFile.name,
+                        size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
+                        duration: durationStr,
+                        type: selectedFile.type,
+                        date: new Date().toISOString()
+                      });
+                  }).catch(() => {
+                      setFileMeta({
+                        name: selectedFile.name,
+                        size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
+                        duration: 'Unknown',
+                        type: selectedFile.type,
+                        date: new Date().toISOString()
+                      });
                   });
               } else {
                   const audio = new Audio(url);
