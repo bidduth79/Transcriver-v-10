@@ -153,84 +153,34 @@ export const useTranscription = (
       const ai = new GoogleGenAI({ apiKey: checkProvider.key });
 
       const currentFileName = inputMetadata?.name || (inputFile as File).name || 'audio_file';
-      const sniff = await detectAudioMimeType(inputFile, currentFileName);
-      const effectiveMimeType = sniff.mimeType || (inputFile.type || 'audio/mp3');
+      // Bypass strict MIME type checking for better Opus support (fallback to audio/webm)
+      const effectiveMimeType = inputFile.type || 'audio/webm';
       const effectiveFile: Blob = inputFile;
-      const wasConvertedToWav = false;
 
       let audioPart: any;
       let uploadedFile: any = null;
 
-      // Safe threshold for inlineData vs Files API:
-      // In Opus/Ogg, an 8MB file is 1 HOUR of audio!
-      // In-memory inlineData Base64 should only be used for short clips (<= 3 minutes and <= 3MB).
-      // Any file > 3MB, or duration > 180 seconds, or any Opus file > 1.5MB MUST be uploaded via Gemini Files API.
-      // Gemini Files API natively decodes 54-minute Opus files in Google Cloud with 0MB browser RAM.
       const isOpusFile = currentFileName.toLowerCase().endsWith('.opus') || effectiveMimeType.includes('ogg') || effectiveMimeType.includes('opus');
-      const isLongFile = (audioDurationSeconds > 180) || (inputFile.size > 3 * 1024 * 1024) || (isOpusFile && inputFile.size > 1.5 * 1024 * 1024);
 
-      if (!isLongFile && effectiveFile.size <= 3 * 1024 * 1024) {
-        setCurrentStage(appLang === 'bn' ? 'অডিও ডেটা প্রস্তুত করা হচ্ছে...' : 'Preparing audio for AI...');
-        const base64Data = await blobToBase64(effectiveFile);
-        audioPart = {
-          inlineData: {
-            mimeType: effectiveMimeType,
-            data: base64Data
-          }
-        };
-      } else {
-        // High-capacity Gemini Files API for long audio / Opus / large files
-        setCurrentStage(appLang === 'bn' ? 'অডিও ফাইলটি ক্লাউড সার্ভারে আপলোড করা হচ্ছে...' : 'Uploading media to cloud server...');
-        const uploadFileName = wasConvertedToWav 
-          ? 'optimized_speech.wav' 
-          : ((inputFile as File).name || 'audio_file');
-
-        const fileToUpload = effectiveFile instanceof File 
-          ? effectiveFile 
-          : new File([effectiveFile], uploadFileName, { type: effectiveMimeType });
-
-        try {
-          uploadedFile = await ai.files.upload({ file: fileToUpload, config: { mimeType: effectiveMimeType } });
-          
-          setCurrentStage(appLang === 'bn' ? 'ক্লাউড সার্ভারে অডিও প্রসেস হচ্ছে, অপেক্ষা করুন...' : 'Processing audio on server, please wait...');
-
-          const uploadedRemoteName = uploadedFile.name || '';
-          if (!uploadedRemoteName) {
-            throw new Error("Failed to retrieve uploaded file identifier.");
-          }
-
-          let getFile = await ai.files.get({ name: uploadedRemoteName });
-          while (getFile.state === 'PROCESSING') {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            getFile = await ai.files.get({ name: uploadedRemoteName });
-          }
-          
-          if (getFile.state === 'FAILED') {
-            throw new Error("File processing failed on AI server.");
-          }
-
-          const remoteFileName = getFile.name || uploadedRemoteName;
-          const fileUri = getFile.uri || uploadedFile.uri || (remoteFileName ? (remoteFileName.startsWith('http') ? remoteFileName : `https://generativelanguage.googleapis.com/v1beta/${remoteFileName}`) : '');
-          const fileMimeType = getFile.mimeType || uploadedFile.mimeType || effectiveMimeType;
-
-          const { createPartFromUri } = await import('@google/genai');
-          audioPart = createPartFromUri(fileUri, fileMimeType);
-        } catch (uploadErr: any) {
-          console.error("Large file upload failed:", uploadErr);
-          throw new Error(appLang === 'bn'
-            ? 'ক্লাউড ফাইলস এপিআইতে আপলোড সম্পন্ন হতে পারেনি। অনুগ্রহ করে ইন্টারনেট সংযোগ পরীক্ষা করে পুনরায় চেষ্টা করুন।'
-            : 'File upload to AI server failed. Please check your connection and retry.');
+      // Completely bypass Files API and always use Base64 inlineData as per legacy app
+      setCurrentStage(appLang === 'bn' ? 'অডিও ডেটা প্রস্তুত করা হচ্ছে...' : 'Preparing audio for AI...');
+      const base64Data = await blobToBase64(effectiveFile);
+      audioPart = {
+        inlineData: {
+          mimeType: effectiveMimeType,
+          data: base64Data
         }
-      }
+      };
       
       const systemInstruction = transcriptionMode === 'normal' 
         ? TRANSCRIPTION_SYSTEM_INSTRUCTION_NORMAL 
         : TRANSCRIPTION_SYSTEM_INSTRUCTION;
 
       let durationInMinutes = audioDurationSeconds / 60;
-      const isLongAudio = isLongFile || durationInMinutes > 15;
+      // Removed isLongFile reference since Files API is completely bypassed
+      const isLongAudio = durationInMinutes > 15 || inputFile.size > 15 * 1024 * 1024;
 
-      const modelName = checkProvider.model || 'gemini-2.5-flash';
+      const modelName = checkProvider.model || 'gemini-3-flash-preview';
       let promptText = transcriptionMode === 'normal' 
         ? TRANSCRIPTION_PROMPT_TEXT_NORMAL 
         : TRANSCRIPTION_PROMPT_TEXT;
@@ -239,16 +189,15 @@ export const useTranscription = (
           promptText += "\n\nCRITICAL FOR THIS MODEL: Ensure every timestamp like [MM:SS] starts on a NEW LINE. Do NOT put timestamps in the middle of text. Each speaker's dialogue MUST be on a separate line. Example:\n[00:00] **Speaker 1:** Hello.\n[00:05] **Speaker 2:** Hi there.";
       }
 
-      // Prepending system instruction to the user prompt guarantees compatibility across ALL models.
-      const combinedPromptText = `${systemInstruction}\n\n${promptText}`;
-
+      // Reverting to sending system instruction properly in config for better adherence
       const requestOptions = {
           model: modelName, 
           contents: [
               audioPart,
-              { text: combinedPromptText }
+              { text: promptText }
           ],
           config: {
+              systemInstruction: systemInstruction,
               temperature: 0.1, 
               maxOutputTokens: 8192,
               safetySettings: [
@@ -351,68 +300,9 @@ export const useTranscription = (
         }
       }
 
-      // If the response is empty, attempt high-gain speech recovery with WAV normalization on tiny clips only
-      // CRITICAL MEMORY SAFETY: NEVER run in-browser decodeAudioData on files > 500KB or Opus files!
-      // A 54-minute Opus file is only ~7MB, but decoding it allocates 1.25GB of uncompressed PCM in RAM, which crashes Chrome!
-      const isActuallyEmpty = !fullText.trim() || 
-        fullText.trim() === '[নিস্তব্ধতা]' || 
-        fullText.trim() === '[নিস্তব্ধতা]।';
+      // Note: Extra audio WAV conversion recovery was removed as per user request
+      // because it does not work correctly for this user's specific .opus files.
 
-      if (isActuallyEmpty && inputFile.size <= 500 * 1024 && !isOpusFile) {
-        console.log("Empty transcription from tiny audio clip. Running audio recovery...");
-        setCurrentStage(appLang === 'bn' ? 'অডিও বুস্ট ও রিকভারি করা হচ্ছে, অপেক্ষা করুন...' : 'Enhancing audio sensitivity & decoding...');
-        try {
-          let recoveryWavBlob: Blob | null = null;
-          if (wasConvertedToWav && effectiveFile) {
-            recoveryWavBlob = effectiveFile;
-          } else {
-            const recovery = await convertAudioToWav(inputFile, 16000);
-            if (recovery && recovery.wavBlob) {
-              recoveryWavBlob = recovery.wavBlob;
-            }
-          }
-
-          if (recoveryWavBlob && recoveryWavBlob.size <= 2 * 1024 * 1024) {
-            const recoveryBase64 = await blobToBase64(recoveryWavBlob);
-            const recoveryPart = {
-              inlineData: {
-                mimeType: 'audio/wav',
-                data: recoveryBase64
-              }
-            };
-            
-            // Direct, unambiguous transcription instruction for recovery
-            const recoveryPrompt = "CRITICAL INSTRUCTION: Transcribe all spoken words and human voices in this audio into Bengali (Bangla). Even if the speech is low volume, rapid, informal, or conversational, transcribe every single utterance. Do NOT return blank. Start with [00:00] **Speaker 1:**";
-            const recoveryCombined = `${systemInstruction}\n\n${recoveryPrompt}`;
-
-            // Try with gemini-2.5-flash as the most robust audio model if current model failed
-            const recoveryModel = modelName !== 'gemini-2.5-flash' ? 'gemini-2.5-flash' : modelName;
-
-            const recoveryOptions = {
-              model: recoveryModel,
-              contents: [
-                recoveryPart,
-                { text: recoveryCombined }
-              ],
-              config: {
-                temperature: 0.2,
-                safetySettings: requestOptions.config.safetySettings
-              }
-            };
-
-            const recoveryResponse = await ai.models.generateContent(recoveryOptions);
-            lastResultObj = recoveryResponse;
-            const recoveredText = extractText(recoveryResponse);
-            if (recoveredText && recoveredText.trim() && recoveredText.trim() !== '[নিস্তব্ধতা]' && recoveredText.trim() !== '[নিস্তব্ধতা]।') {
-              fullText = removeRepetitiveBlocks(recoveredText);
-              setTranscript(fullText);
-              console.log("Audio recovery successfully recovered transcription!");
-            }
-          }
-        } catch (recoveryErr) {
-          console.error("Audio WAV recovery failed:", recoveryErr);
-        }
-      }
 
       await incrementTotalCalls('Transcription', modelName, checkProvider.source);
       updateApiStats();
