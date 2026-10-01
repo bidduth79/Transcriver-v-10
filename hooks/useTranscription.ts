@@ -334,7 +334,10 @@ export const useTranscription = (
       setStatus('completed');
       playSuccessSound(); 
       if (!isAutoProcess) {
-        setShowSuccessModal(true); 
+        addToast(
+          appLang === 'bn' ? 'ট্রান্সক্রিপশন সফলভাবে সম্পন্ন হয়েছে!' : 'Transcription completed successfully!',
+          'success'
+        );
       }
       
       const fileName = (inputFile as File).name || inputMetadata.name || "audio_file";
