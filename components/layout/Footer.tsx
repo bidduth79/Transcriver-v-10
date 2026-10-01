@@ -4,6 +4,7 @@ import { initDB } from '../../services/db.ts';
 import { getApiUrl, checkCloudConnection } from '../../services/api.ts';
 import { getApiCallLogs, ApiCallLog, setActiveModel, AVAILABLE_MODELS } from '../../services/ApiKeyManager.ts';
 import { ShortcutModal } from '../modals/ShortcutModal';
+import { MemoryWidget } from './MemoryWidget';
 
 interface FooterProps {
   t: any;
@@ -176,6 +177,8 @@ export const Footer: React.FC<FooterProps> = ({
       </div>
       
       <div className="flex items-center gap-4 relative">
+        <MemoryWidget isDark={isDark} />
+        
         <button 
             onClick={() => setShowShortcutModal(true)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border cursor-pointer ${isDark ? 'border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10' : 'border-slate-200 bg-white text-slate-500 hover:text-slate-800'}`}

@@ -25,17 +25,13 @@ export const MemoryWidget: React.FC<{ isDark: boolean }> = ({ isDark }) => {
 
   return (
     <div 
-      className={`fixed bottom-12 right-4 z-50 p-2 text-xs font-mono rounded border backdrop-blur-md shadow-lg ${
-        isDark ? 'bg-black/50 border-white/10 text-white/80' : 'bg-white/50 border-black/10 text-black/80'
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
+        isDark ? 'border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10' : 'border-slate-200 bg-white text-slate-500 hover:text-slate-800'
       }`}
+      title={`Total: ${memory.total}MB | Limit: ${memory.limit}MB`}
     >
-      <div className="flex items-center gap-2 mb-1">
-        <div className={`w-2 h-2 rounded-full ${memory.used > memory.limit * 0.8 ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
-        <span className="font-semibold">Memory Usage</span>
-      </div>
-      <div>Used: {memory.used} MB</div>
-      <div>Total: {memory.total} MB</div>
-      <div className="text-[10px] opacity-70">Limit: {memory.limit} MB</div>
+      <div className={`w-2 h-2 rounded-full ${memory.used > memory.limit * 0.8 ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse' : 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]'}`}></div>
+      <span>MEM: {memory.used} MB</span>
     </div>
   );
 };

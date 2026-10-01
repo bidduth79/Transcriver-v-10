@@ -4,7 +4,6 @@ import { Footer } from './Footer';
 import { InteractiveDotBackground } from './Background';
 import { Sidebar } from '../../features/sidebar/Sidebar';
 import { ExpandedHistory } from '../../features/sidebar/ExpandedHistory';
-import { MemoryWidget } from './MemoryWidget';
 import { getSidebarProps, getExpandedHistoryProps } from '../../hooks/useAppProps';
 
 interface AppLayoutProps {
@@ -83,8 +82,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ core, children, modals }) 
       </div>
 
       {modals}
-      
-      <MemoryWidget isDark={core.isDark} />
       
       {core.isHistoryFullscreen && (
         <ExpandedHistory {...getExpandedHistoryProps(core)} />
