@@ -238,58 +238,23 @@ export const useTranscription = (
       let fullText = '';
       let lastResultObj: any = null;
 
-      if (isLongAudio) {
-          setCurrentStage(appLang === 'bn' ? 'এআই সার্ভারে সম্পূর্ণ অডিও বিশ্লেষণ ও ট্রান্সক্রাইব করা হচ্ছে...' : 'Transcribing full media on AI server...');
+      setCurrentStage(appLang === 'bn' ? 'এআই সার্ভারে সম্পূর্ণ অডিও বিশ্লেষণ ও ট্রান্সক্রাইব করা হচ্ছে...' : 'Transcribing media on AI server...');
+      
+      try {
           const response = await ai.models.generateContent(requestOptions);
           lastResultObj = response;
           fullText = extractText(response);
-          fullText = removeRepetitiveBlocks(fullText);
-          setTranscript(fullText);
-      } else {
-          try {
-              const responseStream = await ai.models.generateContentStream(requestOptions);
-              let lastUpdateTime = Date.now();
-              for await (const chunk of responseStream) {
-                  lastResultObj = chunk;
-                  const chunkText = chunk.text || extractText(chunk);
-                  if (chunkText) {
-                      fullText += chunkText;
-                      
-                      const now = Date.now();
-                      if (now - lastUpdateTime > 500) {
-                          const cleanedText = removeRepetitiveBlocks(fullText);
-                          if (cleanedText.length < fullText.length) {
-                              fullText = cleanedText;
-                              setTranscript(fullText);
-                              break; 
-                          }
-                          setTranscript(fullText); 
-                          lastUpdateTime = now;
-                      }
-                  }
-              }
-          } catch (streamErr) {
-              console.warn("generateContentStream encountered error, attempting direct generateContent fallback:", streamErr);
-          }
-
-          // If stream yielded empty text (or stream failed), run non-streaming generateContent fallback
-          if (!fullText.trim()) {
-              console.log("Empty text from stream, executing direct generateContent fallback...");
-              try {
-                  const fallbackResponse = await ai.models.generateContent(requestOptions);
-                  lastResultObj = fallbackResponse;
-                  fullText = extractText(fallbackResponse);
-              } catch (fallbackErr) {
-                  console.error("Non-streaming fallback failed:", fallbackErr);
-              }
-          }
-
-          const finalCleanedText = removeRepetitiveBlocks(fullText);
-          if (finalCleanedText.length < fullText.length) {
-              fullText = finalCleanedText;
-          }
-          setTranscript(fullText);
+      } catch (err) {
+          console.error("Transcription generation failed:", err);
+          throw err;
       }
+
+      const finalCleanedText = removeRepetitiveBlocks(fullText);
+      if (finalCleanedText.length < fullText.length) {
+          fullText = finalCleanedText;
+      }
+      
+      setTranscript(fullText);
       
       // Clean up uploaded file if large file upload path was used
       if (uploadedFile?.name) {
