@@ -22,13 +22,13 @@ export const InteractiveDotBackground = ({ isDark = true }: { isDark?: boolean }
 
     const initParticles = () => {
       particles = [];
-      const numParticles = Math.floor((canvas.width * canvas.height) / 12000);
+      const numParticles = Math.min(35, Math.max(15, Math.floor((canvas.width * canvas.height) / 45000)));
       for (let i = 0; i < numParticles; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 1.5,
-          vy: (Math.random() - 0.5) * 1.5,
+          vx: (Math.random() - 0.5) * 1.0,
+          vy: (Math.random() - 0.5) * 1.0,
           radius: Math.random() * 1.5 + 0.5,
         });
       }
@@ -50,15 +50,23 @@ export const InteractiveDotBackground = ({ isDark = true }: { isDark?: boolean }
       mouse.targetY = -1000;
     };
 
-    window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('resize', resize, { passive: true });
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseleave', handleMouseLeave, { passive: true });
     
     resize();
     mouse.x = -1000;
     mouse.y = -1000;
 
+    const connectionDistanceSq = connectionDistance * connectionDistance;
+    const mouseConnectionDistanceSq = mouseConnectionDistance * mouseConnectionDistance;
+
     const draw = () => {
+      if (document.hidden) {
+        animationFrameId = requestAnimationFrame(draw);
+        return;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       mouse.x += (mouse.targetX - mouse.x) * easing;
@@ -84,9 +92,10 @@ export const InteractiveDotBackground = ({ isDark = true }: { isDark?: boolean }
 
         const dx = p.x - mouse.x;
         const dy = p.y - mouse.y;
-        const distToMouse = Math.sqrt(dx * dx + dy * dy);
+        const distToMouseSq = dx * dx + dy * dy;
         
-        if (distToMouse < mouseConnectionDistance) {
+        if (distToMouseSq < mouseConnectionDistanceSq) {
+          const distToMouse = Math.sqrt(distToMouseSq);
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(mouse.x, mouse.y);
@@ -103,9 +112,10 @@ export const InteractiveDotBackground = ({ isDark = true }: { isDark?: boolean }
           const p2 = particles[j];
           const dx2 = p.x - p2.x;
           const dy2 = p.y - p2.y;
-          const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+          const dist2Sq = dx2 * dx2 + dy2 * dy2;
 
-          if (dist2 < connectionDistance) {
+          if (dist2Sq < connectionDistanceSq) {
+            const dist2 = Math.sqrt(dist2Sq);
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
@@ -144,19 +154,8 @@ export const InteractiveDotBackground = ({ isDark = true }: { isDark?: boolean }
 
 export const SpiderWebBackground = ({ opacity = "opacity-[0.09]", isDark = true }: { opacity?: string, isDark?: boolean }) => (
   <div className={`absolute inset-0 pointer-events-none overflow-hidden select-none z-0`}>
-    {/* Video Background */}
     {/* Fallback gradient visible when video fails to load */}
     <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950' : 'bg-gradient-to-br from-slate-100 via-indigo-50 to-white'}`}></div>
-    <video
-      autoPlay
-      loop
-      muted
-      playsInline
-      className="absolute inset-0 w-full h-full object-cover opacity-100 dark:opacity-100"
-      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-    >
-      <source src="/bg.mp4" type="video/mp4" />
-    </video>
 
     {/* Spider Web SVGs */}
     <div className={`absolute inset-0 ${opacity}`}>

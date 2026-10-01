@@ -75,7 +75,9 @@ export const JoinMediaTool = ({ isDark, activeColors, appLang, addToast, current
             ]);
 
             const data = await ffmpeg.readFile(outputName);
-            const blob = new Blob([(data as Uint8Array).buffer], { type: joinFiles[0].type });
+            const rawBuffer = (data as Uint8Array).buffer;
+            const arrayBuffer = rawBuffer instanceof ArrayBuffer ? rawBuffer : (rawBuffer as any).slice(0);
+            const blob = new Blob([arrayBuffer], { type: joinFiles[0].type });
             
             handleDownloadSuccess(blob, outputName);
             setJoinFiles([]);

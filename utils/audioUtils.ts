@@ -67,9 +67,9 @@ export const loadAudioFromStore = async (
 
 export const playSuccessSound = () => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
     const now = ctx.currentTime;
     [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -85,6 +85,11 @@ export const playSuccessSound = () => {
         osc.start(startTime);
         osc.stop(startTime + 0.8);
     });
+    setTimeout(() => {
+      try {
+        if (ctx.state !== 'closed') ctx.close();
+      } catch (e) {}
+    }, 1200);
   } catch (e) {
     console.error("Failed to play notification sound:", e);
   }

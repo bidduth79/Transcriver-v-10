@@ -5,6 +5,7 @@ import {
     showNoFilesFoundModal, 
     showFileAlreadyTranscribedModal 
 } from './fileHandlerUtils';
+import { detectAudioMimeType } from './transcription/transcriptionUtils';
 
 interface UseFileHandlerProps {
   appLang: string;
@@ -95,14 +96,27 @@ export const useFileHandler = ({
       setTranscript('');
       setStatus('idle');
       
-      const audio = new Audio(url);
+      const lowerName = selectedFile.name.toLowerCase();
+      const isVideo = selectedFile.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mkv') || lowerName.endsWith('.mov') || lowerName.endsWith('.avi');
+      const media = document.createElement(isVideo ? 'video' : 'audio');
+      media.preload = 'metadata';
+      media.src = url;
       
-      const finishMetadata = (durationStr: string) => {
+      const finishMetadata = async (durationStr: string) => {
+        let detectedType = selectedFile.type;
+        if (!detectedType) {
+          try {
+            const sniff = await detectAudioMimeType(selectedFile, selectedFile.name);
+            detectedType = sniff.mimeType;
+          } catch (e) {
+            detectedType = isVideo ? 'video/mp4' : 'audio/mp3';
+          }
+        }
         const metadata = {
           name: selectedFile.name,
           size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
           duration: durationStr,
-          type: selectedFile.type,
+          type: detectedType,
           date: new Date().toISOString()
         };
         setFileMeta(metadata);
@@ -112,25 +126,41 @@ export const useFileHandler = ({
       };
 
       let resolved = false;
-      audio.onloadedmetadata = () => {
+      media.onloadedmetadata = () => {
         if (resolved) return;
         resolved = true;
-        const duration = audio.duration;
+        const duration = media.duration;
         let durationStr = "Unknown";
-        if (isFinite(duration) && !isNaN(duration)) {
+        if (isFinite(duration) && !isNaN(duration) && duration > 0) {
           const mins = Math.floor(duration / 60);
           const secs = Math.floor(duration % 60);
           durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+        } else if (lowerName.endsWith('.opus') || selectedFile.type.includes('ogg') || selectedFile.type.includes('opus')) {
+          // Accurate duration estimation for Opus streams without index headers:
+          // Opus speech average bitrate = 32kbps (4000 bytes/sec).
+          const estimatedSecs = Math.max(10, Math.round(selectedFile.size / 4000));
+          const mins = Math.floor(estimatedSecs / 60);
+          const secs = Math.floor(estimatedSecs % 60);
+          durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
         }
         finishMetadata(durationStr);
-        audio.src = ''; // Release media resource
+        media.src = ''; // Release media resource
+        media.load();
       };
 
-      audio.onerror = () => {
+      media.onerror = () => {
         if (resolved) return;
         resolved = true;
-        finishMetadata("Unknown");
-        audio.src = ''; // Release media resource
+        let durationStr = "Unknown";
+        if (lowerName.endsWith('.opus') || selectedFile.type.includes('ogg') || selectedFile.type.includes('opus')) {
+          const estimatedSecs = Math.max(10, Math.round(selectedFile.size / 4000));
+          const mins = Math.floor(estimatedSecs / 60);
+          const secs = Math.floor(estimatedSecs % 60);
+          durationStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        finishMetadata(durationStr);
+        media.src = ''; // Release media resource
+        media.load();
       };
 
       setTimeout(() => {

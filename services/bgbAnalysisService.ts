@@ -10,7 +10,7 @@ export const analyzeTranscriptForBgb = async (transcript: string, sensitiveMatch
   try {
     const provider = await getActiveProvider();
     const apiKey = provider?.key;
-    const modelToUse = provider?.model || 'gemini-3-flash-preview';
+    const modelToUse = provider?.model || 'gemini-2.5-flash';
     if (!apiKey) {
       throw new Error('API Key missing');
     }

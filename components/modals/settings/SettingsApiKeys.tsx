@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/hooks/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Key, Plus, Trash2, CheckCircle2, Copy, AlertCircle } from 'lucide-react';
-import { UserApiKey, addUserApiKey, deleteApiKey, setActiveApiKey, getAllApiKeys, getActiveKeyId } from '../../../services/ApiKeyManager';
+import { Key, Plus, Trash2, CheckCircle2, Copy, AlertCircle, Cpu } from 'lucide-react';
+import { UserApiKey, addUserApiKey, deleteApiKey, setActiveApiKey, getAllApiKeys, getActiveKeyId, AVAILABLE_MODELS, getActiveModel, setActiveModel } from '../../../services/ApiKeyManager';
 import { STORES } from '../../../services/db';
 import { ConfirmModal } from '../ConfirmModal';
 
@@ -16,6 +16,7 @@ interface SettingsApiKeysProps {
 export const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ isDark, activeColors, appLang, addToast }) => {
     const [keyList, setKeyList] = useState<UserApiKey[]>([]);
     const [activeKeyId, setActiveKeyId] = useState<string | null>(null);
+    const [selectedModel, setSelectedModel] = useState<string>(getActiveModel());
     const [newKeyInput, setNewKeyInput] = useState('');
     const [newKeyLabel, setNewKeyLabel] = useState('');
     const [isAddingKey, setIsAddingKey] = useState(false);
@@ -86,8 +87,48 @@ export const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ isDark, active
         }
     };
 
+    const handleModelChange = (modelId: string) => {
+        setActiveModel(modelId);
+        setSelectedModel(modelId);
+        useAppStore.getState().triggerActiveApiKeyChanged();
+        addToast(appLang === 'bn' ? `মডেল পরিবর্তন হয়েছে: ${modelId}` : `Model changed to: ${modelId}`, 'success');
+    };
+
     return (
         <div className="flex flex-col h-full space-y-6">
+            {/* AI Model Selection */}
+            <div className={`p-5 rounded-3xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                        <Cpu className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h3 className="text-xs font-black uppercase tracking-widest opacity-80">
+                            {appLang === 'bn' ? 'সক্রিয় এআই মডেল' : 'Active AI Model'}
+                        </h3>
+                        <p className="text-[11px] opacity-50 mt-0.5">
+                            {appLang === 'bn' ? 'ট্রান্সক্রিপশন ও বিশ্লেষণের জন্য ব্যবহৃত মডেল' : 'Select Gemini model for transcription & analysis'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <select
+                        value={selectedModel}
+                        onChange={(e) => handleModelChange(e.target.value)}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold border outline-none cursor-pointer focus:ring-2 ${
+                            isDark ? 'bg-slate-800 border-slate-600 text-white focus:ring-indigo-500/50' : 'bg-white border-slate-300 text-slate-800 focus:ring-indigo-500/20'
+                        }`}
+                    >
+                        {AVAILABLE_MODELS.map((m) => (
+                            <option key={m.id} value={m.id}>
+                                {m.label} {m.badge ? `(${m.badge})` : ''}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
             {/* Input Area */}
             <div className={`p-6 rounded-3xl border flex flex-col gap-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                 <h3 className="text-xs font-black uppercase tracking-widest opacity-60">{appLang === 'bn' ? 'নতুন কি যুক্ত করুন' : 'Add New Key'}</h3>

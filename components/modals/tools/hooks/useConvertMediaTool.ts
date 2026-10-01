@@ -106,7 +106,9 @@ export const useConvertMediaTool = (appLang: string, addToast: any) => {
             if (isAudio) mime = `audio/${targetFormat}`;
             else if (['mp4', 'webm', 'mkv', 'avi'].includes(targetFormat)) mime = `video/${targetFormat}`;
 
-            const blob = new Blob([(data as Uint8Array).buffer], { type: mime });
+            const rawBuffer = (data as Uint8Array).buffer;
+            const arrayBuffer = rawBuffer instanceof ArrayBuffer ? rawBuffer : (rawBuffer as any).slice(0);
+            const blob = new Blob([arrayBuffer], { type: mime });
             
             setConvertedResult({blob, name: outputName});
             handleDownloadSuccess(blob, outputName);

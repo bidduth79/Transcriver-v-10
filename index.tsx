@@ -7,13 +7,35 @@ import './i18n.ts';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Toaster } from 'sonner';
 
+// Safe polyfill for browser performance.measure against DataCloneError in Dev/StrictMode
+if (typeof window !== 'undefined' && window.performance && window.performance.measure) {
+  const originalMeasure = window.performance.measure.bind(window.performance);
+  window.performance.measure = function (...args: any[]) {
+    try {
+      return (originalMeasure as any)(...args);
+    } catch (e: any) {
+      if (e?.name === 'DataCloneError' || e?.message?.includes('Data cannot be cloned')) {
+        return; // Silently ignore browser profiling clone limitations on large fibers
+      }
+      throw e;
+    }
+  };
+}
+
 window.addEventListener('error', (event) => {
   if (event.message === 'Script error.') {
       event.preventDefault(); 
       return;
   }
-  if (event.message.includes('Maximum update depth exceeded') || event.message.includes('Should not already be working')) {
-      console.warn('Caught React Rendering Error:', event.message);
+  if (
+    event.message?.includes('Maximum update depth exceeded') || 
+    event.message?.includes('Should not already be working') ||
+    event.message?.includes('flushSync was called') ||
+    event.message?.includes('Data cannot be cloned')
+  ) {
+      console.warn('Caught React Rendering / Dev Error:', event.message);
+      event.preventDefault();
+      return;
   }
   console.log('GLOBAL_ERROR:', event.message, event.filename, event.lineno, event.colno);
   if (event.error) {

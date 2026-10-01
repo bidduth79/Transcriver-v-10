@@ -1,13 +1,47 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const defaultSupabaseUrl = 'https://ftrjvvsfjxmxwqvbskic.supabase.co';
 
-// Validate that the key looks like a proper JWT (contains dots for header.payload.signature)
-const isConfigValid = !!(supabaseUrl && supabaseKey && String(supabaseKey).includes('.'));
+export const sanitizeSupabaseUrl = (url: any): string => {
+  if (!url || typeof url !== 'string') return defaultSupabaseUrl;
+  let trimmed = url.trim();
+  if (!trimmed || trimmed === 'undefined' || trimmed === 'null') return defaultSupabaseUrl;
 
-/** Whether Supabase is properly configured */
-export const isSupabaseConfigured = isConfigValid;
+  // Remove surrounding quotes if present
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+
+  // Prepend https:// if protocol is missing
+  if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = `https://${trimmed}`;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.origin;
+    }
+  } catch (e) {
+    return defaultSupabaseUrl;
+  }
+  return defaultSupabaseUrl;
+};
+
+const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseUrl = sanitizeSupabaseUrl(rawSupabaseUrl);
+const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('supabase_anon_key') : null) || '').trim();
+
+// Validate that the key is a genuine Supabase JWT token (starts with eyJ... and has valid length)
+const isConfigValid = !!(
+  supabaseUrl && 
+  /^https?:\/\//i.test(supabaseUrl) && 
+  supabaseKey && 
+  supabaseKey.startsWith('eyJ') &&
+  supabaseKey.length > 40
+);
+
+export const currentSupabaseUrl = supabaseUrl;
 
 const notConfiguredError = new Error("Supabase not configured");
 
@@ -45,10 +79,20 @@ const dummyClient = {
     })
 };
 
-if (!isConfigValid && supabaseKey) {
-    console.warn('Supabase Anon Key appears invalid (not a valid JWT format). Please update VITE_SUPABASE_ANON_KEY in .env');
+let clientInstance: any = dummyClient;
+
+if (isConfigValid) {
+  try {
+    clientInstance = createClient(supabaseUrl, supabaseKey);
+  } catch (err) {
+    console.warn('Could not initialize Supabase client, falling back to safe dummy client:', err);
+    clientInstance = dummyClient;
+  }
+} else if (supabaseKey) {
+  console.warn('Supabase Anon Key appears invalid (not a valid JWT format). Please update VITE_SUPABASE_ANON_KEY in .env');
 }
 
-export const supabase = isConfigValid 
-  ? createClient(supabaseUrl, supabaseKey) 
-  : dummyClient as any;
+/** Whether Supabase is properly configured */
+export const isSupabaseConfigured = isConfigValid && clientInstance !== dummyClient;
+
+export const supabase = clientInstance;

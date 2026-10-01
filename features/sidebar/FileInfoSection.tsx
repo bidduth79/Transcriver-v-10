@@ -39,9 +39,27 @@ export const FileInfoSection = ({
           <div className="flex justify-between items-center"><span className="opacity-60">{t.durationLabel}</span> <span className={`${isDark ? 'text-indigo-300' : (activeColors?.text || 'text-indigo-600')} font-black`}>{fileMeta?.duration}</span></div>
         </div>
         
-        {/* Audio Player with Seek & Speed Control */}
+        {/* Audio/Video Player with Seek & Speed Control */}
         <div className="space-y-2">
-            <audio ref={audioRef} onTimeUpdate={handleTimeUpdate} src={fileUrl} controls className="w-full h-10 bg-slate-50 rounded-lg p-1" />
+            {fileMeta?.type?.startsWith('video/') || fileMeta?.name?.toLowerCase().endsWith('.mp4') || fileMeta?.name?.toLowerCase().endsWith('.mkv') || fileMeta?.name?.toLowerCase().endsWith('.mov') || fileMeta?.name?.toLowerCase().endsWith('.webm') ? (
+              <video 
+                ref={audioRef as any} 
+                onTimeUpdate={handleTimeUpdate} 
+                src={fileUrl} 
+                controls 
+                preload="metadata" 
+                className="w-full max-h-48 bg-black rounded-lg object-contain" 
+              />
+            ) : (
+              <audio 
+                ref={audioRef} 
+                onTimeUpdate={handleTimeUpdate} 
+                src={fileUrl} 
+                controls 
+                preload="metadata" 
+                className="w-full h-10 bg-slate-50 rounded-lg p-1" 
+              />
+            )}
             
             <div className="flex items-center justify-between gap-2 px-1">
                 {/* SEEK BUTTONS */}

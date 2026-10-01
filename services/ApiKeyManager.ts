@@ -7,21 +7,17 @@ import { useAppStore } from '../hooks/useAppStore';
 
 const ACTIVE_KEY_ID_STORAGE = 'manual_active_key_id';
 const ACTIVE_MODEL_STORAGE = 'manual_active_model';
-const DEFAULT_MODEL = 'gemini-3.5-transcribe';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
 
 export const AVAILABLE_MODELS = [
-  { id: 'gemini-3.5-transcribe', label: 'Gemini 3.5 Transcribe', badge: 'Default & Accurate' },
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: 'Fast' },
-  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: 'Default & Fast' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: 'High Accuracy' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: 'Preview' },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
   { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite', badge: 'Fastest' },
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview', badge: 'Accurate' },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
   { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite' },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
-  { id: 'gemini-pro', label: 'Gemini Pro Latest' },
-  { id: 'gemini-flash', label: 'Gemini Flash Latest' },
-  { id: 'gemini-flash-lite', label: 'Gemini Flash-Lite Latest' }
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' }
 ];
 
 export const setActiveModel = (modelId: string) => {
@@ -76,7 +72,7 @@ export const getActiveProvider = async () => {
   }
 
   const env = import.meta.env;
-  const envKey = env ? env.VITE_API_KEY_1 : undefined;
+  const envKey = env ? (env.VITE_API_KEY_1 || env.VITE_GEMINI_API_KEY) : undefined;
 
   if (envKey && typeof envKey === 'string' && envKey.trim() !== '') {
     return {
@@ -86,12 +82,15 @@ export const getActiveProvider = async () => {
     };
   }
 
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-     return {
-      key: process.env.API_KEY.trim(),
-      model: currentModel,
-      source: 'Environment (Process)'
-    };
+  if (typeof process !== 'undefined' && process.env) {
+    const pKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (pKey && typeof pKey === 'string' && pKey.trim() !== '') {
+      return {
+        key: pKey.trim(),
+        model: currentModel,
+        source: 'Environment (Process)'
+      };
+    }
   }
 
   try {

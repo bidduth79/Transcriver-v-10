@@ -141,7 +141,9 @@ export const useCutMediaTool = ({ addToast, appLang, onFileSelect, setIsMinimize
                 ]);
 
                 const data = await ffmpeg.readFile(outputName);
-                const blob = new Blob([(data as Uint8Array).buffer], { type: cutFile.type });
+                const rawBuffer = (data as Uint8Array).buffer;
+                const arrayBuffer = rawBuffer instanceof ArrayBuffer ? rawBuffer : (rawBuffer as any).slice(0);
+                const blob = new Blob([arrayBuffer], { type: cutFile.type });
                 handleDownloadSuccess(blob, outputName);
                 
             } else {
@@ -171,7 +173,9 @@ export const useCutMediaTool = ({ addToast, appLang, onFileSelect, setIsMinimize
                     ]);
 
                     const data = await ffmpeg.readFile(outputName);
-                    const blob = new Blob([(data as Uint8Array).buffer], { type: cutFile.type });
+                    const rawPartBuffer = (data as Uint8Array).buffer;
+                    const arrayPartBuffer = rawPartBuffer instanceof ArrayBuffer ? rawPartBuffer : (rawPartBuffer as any).slice(0);
+                    const blob = new Blob([arrayPartBuffer], { type: cutFile.type });
                     
                     generatedFiles.push({
                         name: outputName,

@@ -82,7 +82,7 @@ const fetchFromSupabase = async (storeName: string): Promise<any[]> => {
       const { data, error } = await supabase.from(storeName).select('*').range(from, from + limit - 1);
 
       if (error) {
-        console.error(`[Supabase Fetch] Error for ${storeName}:`, error);
+        console.warn(`[Supabase Fetch] Info for ${storeName}:`, error.message || error);
         break;
       }
 
