@@ -251,6 +251,17 @@ export const useTranscription = (
       } catch (err) {
           console.error("Transcription generation failed:", err);
           throw err;
+      } finally {
+          // CRITICAL: Release the massive base64 audio data from memory immediately
+          // A 10MB opus file creates ~13MB of base64 string that stays in RAM
+          // until this function ends. Without this cleanup, post-transcription 
+          // processing (history save, BGB analysis, loadHistory) causes OOM crash.
+          if (audioPart?.inlineData) {
+              audioPart.inlineData.data = '';
+              audioPart.inlineData = null;
+          }
+          audioPart = null;
+          requestOptions.contents = [];
       }
 
       const finalCleanedText = removeRepetitiveBlocks(fullText);
