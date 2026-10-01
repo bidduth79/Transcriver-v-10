@@ -184,7 +184,7 @@ export const useTranscription = (
 
       // Use Base64 inlineData
       setCurrentStage(appLang === 'bn' ? 'অডিও ডেটা প্রস্তুত করা হচ্ছে...' : 'Preparing audio for AI...');
-      const base64Data = await blobToBase64(effectiveFile);
+      let base64Data = await blobToBase64(effectiveFile);
       audioPart = {
         inlineData: {
           mimeType: effectiveMimeType,
@@ -281,6 +281,7 @@ export const useTranscription = (
           }
           audioPart = null;
           requestOptions.contents = [];
+          base64Data = '';
       }
 
       const finalCleanedText = removeRepetitiveBlocks(fullText);
