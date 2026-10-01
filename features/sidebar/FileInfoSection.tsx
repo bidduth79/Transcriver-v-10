@@ -39,31 +39,57 @@ export const FileInfoSection = ({
           <div className="flex justify-between items-center"><span className="opacity-60">{t.durationLabel}</span> <span className={`${isDark ? 'text-indigo-300' : (activeColors?.text || 'text-indigo-600')} font-black`}>{fileMeta?.duration}</span></div>
         </div>
         
-        {/* Audio/Video Player with Seek & Speed Control */}
         <div className="space-y-2">
-            {fileMeta?.type?.startsWith('video/') || fileMeta?.name?.toLowerCase().endsWith('.mp4') || fileMeta?.name?.toLowerCase().endsWith('.mkv') || fileMeta?.name?.toLowerCase().endsWith('.mov') || fileMeta?.name?.toLowerCase().endsWith('.webm') ? (
-              <video 
-                ref={audioRef as any} 
-                onTimeUpdate={handleTimeUpdate} 
-                src={fileUrl} 
-                controls 
-                preload="metadata" 
-                className="w-full max-h-48 bg-black rounded-lg object-contain" 
-              />
-            ) : (fileMeta?.name?.toLowerCase().endsWith('.opus') || fileMeta?.name?.toLowerCase().endsWith('.ogg') || fileMeta?.type?.includes('opus') || fileMeta?.type?.includes('ogg')) ? (
-              <div className="w-full h-10 flex items-center justify-center text-[10px] text-slate-500 bg-slate-100 rounded-lg p-1 font-bold">
-                {t.previewNotSupported || 'Preview not supported for Opus files in browser'}
-              </div>
-            ) : (
-              <audio 
-                ref={audioRef} 
-                onTimeUpdate={handleTimeUpdate} 
-                src={fileUrl} 
-                controls 
-                preload="metadata" 
-                className="w-full h-10 bg-slate-50 rounded-lg p-1" 
-              />
-            )}
+        {(() => {
+            // Check opus/ogg from BOTH fileMeta AND fileUrl to prevent race condition crash
+            // fileUrl is a blob: URL so we need fileMeta or the raw file name
+            const nameFromMeta = fileMeta?.name?.toLowerCase() || '';
+            const typeFromMeta = fileMeta?.type || '';
+            const isVideo = typeFromMeta.startsWith('video/') || nameFromMeta.endsWith('.mp4') || nameFromMeta.endsWith('.mkv') || nameFromMeta.endsWith('.mov') || nameFromMeta.endsWith('.webm');
+            const isOpusOrOgg = nameFromMeta.endsWith('.opus') || nameFromMeta.endsWith('.ogg') || typeFromMeta.includes('opus') || typeFromMeta.includes('ogg');
+            
+            // CRITICAL: If fileMeta is not yet loaded, do NOT render any media element at all
+            // This prevents the browser from attempting to decode opus before we know the file type
+            if (!fileMeta) {
+                return (
+                    <div className="w-full h-10 flex items-center justify-center text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 font-bold animate-pulse">
+                        Loading file info...
+                    </div>
+                );
+            }
+            
+            if (isVideo) {
+                return (
+                    <video 
+                        ref={audioRef as any} 
+                        onTimeUpdate={handleTimeUpdate} 
+                        src={fileUrl} 
+                        controls 
+                        preload="metadata" 
+                        className="w-full max-h-48 bg-black rounded-lg object-contain" 
+                    />
+                );
+            }
+            
+            if (isOpusOrOgg) {
+                return (
+                    <div className="w-full h-10 flex items-center justify-center text-[10px] text-slate-500 bg-slate-100 rounded-lg p-1 font-bold">
+                        {t.previewNotSupported || 'Preview not supported for Opus files in browser'}
+                    </div>
+                );
+            }
+            
+            return (
+                <audio 
+                    ref={audioRef} 
+                    onTimeUpdate={handleTimeUpdate} 
+                    src={fileUrl} 
+                    controls 
+                    preload="metadata" 
+                    className="w-full h-10 bg-slate-50 rounded-lg p-1" 
+                />
+            );
+        })()}
             
             <div className="flex items-center justify-between gap-2 px-1">
                 {/* SEEK BUTTONS */}
