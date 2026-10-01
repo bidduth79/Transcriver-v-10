@@ -101,10 +101,6 @@ export const useFileHandler = ({
       const isVideo = selectedFile.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mkv') || lowerName.endsWith('.mov') || lowerName.endsWith('.avi');
       const isOpus = lowerName.endsWith('.opus') || lowerName.endsWith('.ogg') || selectedFile.type === 'audio/opus' || selectedFile.type.includes('ogg') || selectedFile.type.includes('opus');
       
-      const media = document.createElement(isVideo ? 'video' : 'audio');
-      media.preload = 'metadata';
-      media.src = url;
-      
       const finishMetadata = async (durationStr: string) => {
         let detectedType = selectedFile.type;
         if (!detectedType) {
@@ -152,6 +148,10 @@ export const useFileHandler = ({
           });
           return;
       }
+
+      const media = document.createElement(isVideo ? 'video' : 'audio');
+      media.preload = 'metadata';
+      media.src = url;
 
 
       let resolved = false;
