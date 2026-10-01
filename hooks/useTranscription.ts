@@ -153,16 +153,36 @@ export const useTranscription = (
       const ai = new GoogleGenAI({ apiKey: checkProvider.key });
 
       const currentFileName = inputMetadata?.name || (inputFile as File).name || 'audio_file';
-      // Bypass strict MIME type checking for better Opus support (fallback to audio/webm)
-      const effectiveMimeType = inputFile.type || 'audio/webm';
+      const lowerName = currentFileName.toLowerCase();
+      
+      // Determine the accurate MIME type for Gemini
+      let effectiveMimeType = inputFile.type;
+      if (!effectiveMimeType || effectiveMimeType === 'application/octet-stream') {
+        if (lowerName.endsWith('.opus') || lowerName.endsWith('.ogg')) {
+          effectiveMimeType = 'audio/ogg';
+        } else if (lowerName.endsWith('.mp3')) {
+          effectiveMimeType = 'audio/mp3';
+        } else if (lowerName.endsWith('.wav')) {
+          effectiveMimeType = 'audio/wav';
+        } else if (lowerName.endsWith('.m4a')) {
+          effectiveMimeType = 'audio/mp4';
+        } else if (lowerName.endsWith('.webm')) {
+          effectiveMimeType = 'audio/webm';
+        } else {
+          effectiveMimeType = 'audio/ogg';
+        }
+      } else if (lowerName.endsWith('.opus') && effectiveMimeType.includes('webm')) {
+        effectiveMimeType = 'audio/ogg';
+      }
+      
       const effectiveFile: Blob = inputFile;
 
       let audioPart: any;
       let uploadedFile: any = null;
 
-      const isOpusFile = currentFileName.toLowerCase().endsWith('.opus') || effectiveMimeType.includes('ogg') || effectiveMimeType.includes('opus');
+      const isOpusFile = lowerName.endsWith('.opus') || effectiveMimeType.includes('ogg') || effectiveMimeType.includes('opus');
 
-      // Completely bypass Files API and always use Base64 inlineData as per legacy app
+      // Use Base64 inlineData
       setCurrentStage(appLang === 'bn' ? 'অডিও ডেটা প্রস্তুত করা হচ্ছে...' : 'Preparing audio for AI...');
       const base64Data = await blobToBase64(effectiveFile);
       audioPart = {
@@ -177,10 +197,9 @@ export const useTranscription = (
         : TRANSCRIPTION_SYSTEM_INSTRUCTION;
 
       let durationInMinutes = audioDurationSeconds / 60;
-      // Removed isLongFile reference since Files API is completely bypassed
       const isLongAudio = durationInMinutes > 15 || inputFile.size > 15 * 1024 * 1024;
 
-      const modelName = checkProvider.model || 'gemini-3-flash-preview';
+      const modelName = checkProvider.model || 'gemini-2.5-flash';
       let promptText = transcriptionMode === 'normal' 
         ? TRANSCRIPTION_PROMPT_TEXT_NORMAL 
         : TRANSCRIPTION_PROMPT_TEXT;
