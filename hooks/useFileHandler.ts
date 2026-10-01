@@ -98,6 +98,8 @@ export const useFileHandler = ({
       
       const lowerName = selectedFile.name.toLowerCase();
       const isVideo = selectedFile.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mkv') || lowerName.endsWith('.mov') || lowerName.endsWith('.avi');
+      const isOpus = lowerName.endsWith('.opus') || selectedFile.type === 'audio/opus';
+      
       const media = document.createElement(isVideo ? 'video' : 'audio');
       media.preload = 'metadata';
       media.src = url;
@@ -124,6 +126,12 @@ export const useFileHandler = ({
           processTranscription(selectedFile, metadata);
         }
       };
+
+      if (isOpus) {
+          finishMetadata("Unknown");
+          return;
+      }
+
 
       let resolved = false;
       media.onloadedmetadata = () => {
@@ -184,30 +192,42 @@ export const useFileHandler = ({
               const url = URL.createObjectURL(selectedFile);
               setFileUrl(url);
               
-              const audio = new Audio(url);
-              audio.onloadedmetadata = () => {
-                const duration = audio.duration;
-                const mins = Math.floor(duration / 60);
-                const secs = Math.floor(duration % 60);
-                const metadata = {
-                  name: selectedFile.name,
-                  size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
-                  duration: `${mins}:${secs.toString().padStart(2, '0')}`,
-                  type: selectedFile.type,
-                  date: new Date().toISOString()
-                };
-                setFileMeta(metadata);
-                audio.src = ''; // Release media resource
-              };
-              audio.onerror = () => {
-                setFileMeta({
-                  name: selectedFile.name,
-                  size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
-                  duration: 'Unknown',
-                  type: selectedFile.type,
-                  date: new Date().toISOString()
-                });
-              };
+              const isOpusHistory = selectedFile.name.toLowerCase().endsWith('.opus') || selectedFile.type === 'audio/opus';
+              
+              if (isOpusHistory) {
+                  setFileMeta({
+                    name: selectedFile.name,
+                    size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
+                    duration: 'Unknown',
+                    type: selectedFile.type,
+                    date: new Date().toISOString()
+                  });
+              } else {
+                  const audio = new Audio(url);
+                  audio.onloadedmetadata = () => {
+                    const duration = audio.duration;
+                    const mins = Math.floor(duration / 60);
+                    const secs = Math.floor(duration % 60);
+                    const metadata = {
+                      name: selectedFile.name,
+                      size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
+                      duration: `${mins}:${secs.toString().padStart(2, '0')}`,
+                      type: selectedFile.type,
+                      date: new Date().toISOString()
+                    };
+                    setFileMeta(metadata);
+                    audio.src = ''; // Release media resource
+                  };
+                  audio.onerror = () => {
+                    setFileMeta({
+                      name: selectedFile.name,
+                      size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB',
+                      duration: 'Unknown',
+                      type: selectedFile.type,
+                      date: new Date().toISOString()
+                    });
+                  };
+              }
 
               setTranscript(existingHistoryItem.transcript);
               setStatus('completed');
