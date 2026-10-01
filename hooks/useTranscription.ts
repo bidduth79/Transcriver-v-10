@@ -193,13 +193,17 @@ export const useTranscription = (
       const requestOptions = {
           model: modelName, 
           contents: [
-              audioPart,
-              { text: promptText }
+              {
+                  role: 'user',
+                  parts: [
+                      audioPart,
+                      { text: promptText }
+                  ]
+              }
           ],
           config: {
               systemInstruction: systemInstruction,
-              temperature: 0.1, 
-              maxOutputTokens: 8192,
+              temperature: 0.1,
               safetySettings: [
                   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
                   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },

@@ -15,22 +15,9 @@ export const FormattedTranscript = ({
   sensitiveMatches = [],
   onSeek,
   onSpeakerClick,
-  onRenameSpeaker,
-  scrollElementRef
+  onRenameSpeaker
 }: any) => {
   const matchIndexRef = useRef(0);
-  
-  const lines = React.useMemo(() => text ? text.split('\n') : [], [text]);
-  
-  const localScrollRef = useRef<HTMLDivElement>(null);
-  const scrollRefToUse = scrollElementRef || localScrollRef;
-
-  const virtualizer = useVirtualizer({
-    count: lines.length,
-    getScrollElement: () => scrollRefToUse.current,
-    estimateSize: () => 30, // reasonable estimate for a line
-    overscan: 20,
-  });
   
   // Use the hook safely inside this component
   const { formatText } = useTranscriptFormatter(searchTerm, isDark, currentMatchIndex, sensitiveMatches);
@@ -40,17 +27,7 @@ export const FormattedTranscript = ({
 
   if (!text) return null;
 
-  const content = (
-    <div 
-      style={{
-        height: `${virtualizer.getTotalSize()}px`,
-        width: '100%',
-        position: 'relative'
-      }}
-    >
-      {virtualizer.getVirtualItems().map((virtualRow: any) => {
-        const line = lines[virtualRow.index];
-        const i = virtualRow.index;
+  return text.split('\n').map((line: string, i: number) => {
     // Extract timestamp if it exists at the beginning of the line
     const timestampMatch = line.match(/^[\*\_\[\(\s]*((?:\d{1,2}:)?\d{1,2}:\d{2})[\*\_\]\)\s]*\s+(.*)/);
     
@@ -74,20 +51,7 @@ export const FormattedTranscript = ({
 
     const parts = content.split(/(\*\*.*?\*\*)/g);
     return (
-      <div 
-        key={i} 
-        data-index={virtualRow.index}
-        ref={virtualizer.measureElement}
-        style={{ 
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          transform: `translateY(${virtualRow.start}px)`,
-          paddingBottom: '8px'
-        }} 
-        className="leading-relaxed flex items-start group"
-      >
+      <div key={i} style={{ contentVisibility: 'auto', containIntrinsicSize: '1.5em' }} className="mb-2 min-h-[1.5em] leading-relaxed flex items-start group">
         {timestamp && (
           <span 
             onClick={() => onSeek && onSeek(timestamp)}
@@ -140,24 +104,8 @@ export const FormattedTranscript = ({
           })}
         </div>
       </div>
-      );
-    })}
-    </div>
-  );
-
-  if (!scrollElementRef) {
-    return (
-      <div 
-        ref={localScrollRef} 
-        style={{ height: '60vh', overflowY: 'auto' }} 
-        className="custom-scrollbar"
-      >
-        {content}
-      </div>
     );
-  }
-
-  return content;
+  });
 };
 
 export const TranscriptViewer = ({
@@ -201,15 +149,18 @@ export const TranscriptViewer = ({
       return true;
     };
 
-    const itemsToRender = virtualizer.getVirtualItems().map((v: any) => ({ index: v.index, seg: transcriptSegments[v.index], virtualRow: v }));
+    const itemsToRender = isSearchActive
+      ? transcriptSegments.map((seg: any, idx: number) => ({ index: idx, seg }))
+      : virtualizer.getVirtualItems().map((v: any) => ({ index: v.index, seg: transcriptSegments[v.index], virtualRow: v }));
 
     return (
       <div 
-        style={{
+        className={isSearchActive ? "space-y-4" : ""}
+        style={!isSearchActive ? {
           height: `${virtualizer.getTotalSize()}px`,
           width: '100%',
           position: 'relative'
-        }}
+        } : undefined}
       >
         {itemsToRender.map(({ index: idx, seg, virtualRow }: any) => {
           const isActive = audioCurrentTime >= seg.start && audioCurrentTime < seg.end;
@@ -241,7 +192,7 @@ export const TranscriptViewer = ({
                   : hasSearchMatch
                     ? (isDark ? 'bg-red-500/10 border-red-500/50 opacity-100' : 'bg-red-50 border-red-400 opacity-100')
                     : `border-transparent ${isKaraokeEnabled ? 'opacity-70' : 'opacity-100'} hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5`
-              } ${hasSensitiveMatch && !isActive ? 'ring-1 ring-red-500/20' : ''}`}
+              } ${hasSensitiveMatch && !isActive ? 'ring-1 ring-red-500/20' : ''} ${!virtualRow && !isSearchActive ? 'mb-4' : ''}`}
             >
               {/* Match Indicator */}
               {hasSearchMatch && !isActive && (
@@ -333,7 +284,6 @@ export const TranscriptViewer = ({
             onSeek={onSeek} 
             onSpeakerClick={onSpeakerClick} 
             onRenameSpeaker={onRenameSpeaker} 
-            scrollElementRef={scrollElementRef}
           />
       }
     </>
