@@ -50,7 +50,7 @@ export const FileInfoSection = ({
                 preload="metadata" 
                 className="w-full max-h-48 bg-black rounded-lg object-contain" 
               />
-            ) : fileMeta?.name?.toLowerCase().endsWith('.opus') ? (
+            ) : (fileMeta?.name?.toLowerCase().endsWith('.opus') || fileMeta?.name?.toLowerCase().endsWith('.ogg') || fileMeta?.type?.includes('opus') || fileMeta?.type?.includes('ogg')) ? (
               <div className="w-full h-10 flex items-center justify-center text-[10px] text-slate-500 bg-slate-100 rounded-lg p-1 font-bold">
                 {t.previewNotSupported || 'Preview not supported for Opus files in browser'}
               </div>

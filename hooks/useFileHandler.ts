@@ -99,7 +99,7 @@ export const useFileHandler = ({
       
       const lowerName = selectedFile.name.toLowerCase();
       const isVideo = selectedFile.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mkv') || lowerName.endsWith('.mov') || lowerName.endsWith('.avi');
-      const isOpus = lowerName.endsWith('.opus') || selectedFile.type === 'audio/opus';
+      const isOpus = lowerName.endsWith('.opus') || lowerName.endsWith('.ogg') || selectedFile.type === 'audio/opus' || selectedFile.type.includes('ogg') || selectedFile.type.includes('opus');
       
       const media = document.createElement(isVideo ? 'video' : 'audio');
       media.preload = 'metadata';
@@ -213,7 +213,7 @@ export const useFileHandler = ({
               const url = URL.createObjectURL(selectedFile);
               setFileUrl(url);
               
-              const isOpusHistory = selectedFile.name.toLowerCase().endsWith('.opus') || selectedFile.type === 'audio/opus';
+              const isOpusHistory = selectedFile.name.toLowerCase().endsWith('.opus') || selectedFile.name.toLowerCase().endsWith('.ogg') || selectedFile.type === 'audio/opus' || selectedFile.type.includes('ogg') || selectedFile.type.includes('opus');
               
               if (isOpusHistory) {
                   musicMetadata.parseBlob(selectedFile).then((metadata) => {

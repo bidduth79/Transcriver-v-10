@@ -62,15 +62,24 @@ export const CutMediaTool = ({ isDark, activeColors, appLang, addToast, currentT
                         </div>
                         <span className="text-xs font-black uppercase tracking-widest text-emerald-500 mb-2">Selected: {cutFile.name}</span>
                         <span className="text-[10px] font-bold opacity-60 mb-4">{(cutFile.size / 1024 / 1024).toFixed(2)} MB</span>
-                        {previewUrl && (
+                        {previewUrl && (() => {
+                            const isOpus = cutFile?.name?.toLowerCase().endsWith('.opus') || cutFile?.name?.toLowerCase().endsWith('.ogg') || cutFile?.type?.includes('opus') || cutFile?.type?.includes('ogg');
+                            return (
                             <div className="w-full max-w-lg bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700">
                                 {currentTab === 'video_cut' ? (
                                     <video ref={mediaRef as React.RefObject<HTMLVideoElement>} src={previewUrl} controls onLoadedMetadata={handleMetadataLoaded} className="w-full max-h-[300px] mx-auto" />
+                                ) : isOpus ? (
+                                    <div className="w-full mt-4 mb-2 px-4 py-8 bg-slate-200 dark:bg-slate-700 rounded-lg text-center">
+                                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                            {appLang === 'bn' ? 'ব্রাউজারে ওপাস প্রিভিউ সমর্থিত নয়। আপনি টাইম লিখে ট্রিম করতে পারেন।' : 'Opus preview not supported. You can still trim by time.'}
+                                        </p>
+                                    </div>
                                 ) : (
                                     <audio ref={mediaRef as React.RefObject<HTMLAudioElement>} src={previewUrl} controls onLoadedMetadata={handleMetadataLoaded} className="w-full mt-4 mb-2 px-4" />
                                 )}
                             </div>
-                        )}
+                            );
+                        })()}
                         <p className="text-[10px] mt-4 opacity-40 uppercase">Click to change file</p>
                     </div>
                 ) : (
