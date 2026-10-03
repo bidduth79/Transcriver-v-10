@@ -79,8 +79,8 @@ export const scanDatabaseForSpeaker = async (
 
     lines.forEach((line) => {
       // Regex to capture timestamp and speaker: [00:15] **Speaker Name:** or **Speaker Name:** or Speaker Name:
-      const speakerMatch = line.match(/^(\[\d{1,2}:\d{2}(?::\d{2})?\])?\s*\*\*([^*]+)\*\*:\s*(.*)$/) ||
-                           line.match(/^(\[\d{1,2}:\d{2}(?::\d{2})?\])?\s*([A-Za-z0-9\u0980-\u09FF\s._-]+):\s*(.*)$/);
+      const speakerMatch = line.match(/^(\[[0-9০-৯]{1,2}:[0-9০-৯]{2}(?::[0-9০-৯]{2})?\])?\s*\*\*([^*]+)\*\*:\s*(.*)$/) ||
+                           line.match(/^(\[[0-9০-৯]{1,2}:[0-9০-৯]{2}(?::[0-9০-৯]{2})?\])?\s*([A-Za-z0-9\u0980-\u09FF\s._-]+):\s*(.*)$/);
 
       if (speakerMatch) {
         const timestamp = speakerMatch[1] ? speakerMatch[1].replace(/[\[\]]/g, '') : '';

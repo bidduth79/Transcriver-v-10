@@ -90,7 +90,7 @@ export const TranscriptOutput: React.FC<TranscriptOutputProps> = ({
     }
   };
 
-  const handleRenameSpeaker = async (oldName: string) => {
+  const handleRenameSpeaker = React.useCallback(async (oldName: string) => {
     const newName = window.prompt(appLang === 'bn' ? `"${oldName}" এর নতুন নাম দিন:` : `Rename "${oldName}" to:`, oldName);
     if (newName && newName.trim() !== '' && newName !== oldName) {
       // Find occurrences of **oldName** or **oldName:** and replace with newName
@@ -108,10 +108,22 @@ export const TranscriptOutput: React.FC<TranscriptOutputProps> = ({
         }
       }
     }
-  };
+  }, [appLang, transcript, setTranscript, addToast, activeHistoryId]);
 
   const { scrollContainerRef, transcriptEndRef, localScrollPercent, handleScroll, handleUserInteraction, scrollToTop, scrollToBottom } = useTranscriptScroll(matchCount, searchTerm, currentMatchIndex, isSynced, isKaraokeEnabled, status, transcript, audioCurrentTime);
   const { sensitiveMatches, sensitiveWordCounts, isSensitive } = useSensitiveKeywords(transcript);
+
+  // CRITICAL FIX: Force a re-render when the scroll container mounts so useVirtualizer doesn't render 0 items and freeze for 4-5s.
+  const [isScrollReady, setIsScrollReady] = useState(false);
+  
+  React.useEffect(() => {
+    if (status === 'completed' && scrollContainerRef.current && !isScrollReady) {
+      setIsScrollReady(true);
+    } else if (status !== 'completed' && isScrollReady) {
+      setIsScrollReady(false);
+    }
+  }, [status, isScrollReady, scrollContainerRef.current]);
+
   const { isBgbAnalysisEnabled, setIsBgbAnalysisEnabled, bgbAnalysisResult, isAnalyzing, triggerAnalysis } = useBgbAnalysis(transcript, sensitiveMatches);
   const { isOpen: isSpeakerProfileOpen, speakerName, profile: speakerProfile, isLoading: isSpeakerLoading, error: speakerError, openProfile, closeProfile, refreshProfile, updateCustomNote } = useSpeakerProfile(transcript || '');
 
@@ -255,26 +267,32 @@ export const TranscriptOutput: React.FC<TranscriptOutputProps> = ({
                     ? (isDark ? 'bg-red-950/30 border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : 'bg-red-50/80 border-red-200 shadow-[0_0_30px_rgba(239,68,68,0.1)]')
                     : (isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white/80 border-white/40')
                 }`}>
-                <TranscriptContent
-                  fontSize={fontSize}
-                  isDark={isDark}
-                  t={t}
-                  activeTranscriptSourceMeta={activeTranscriptSourceMeta}
-                  appLang={appLang}
-                  transcriptSegments={transcriptSegments}
-                  audioCurrentTime={audioCurrentTime}
-                  searchTerm={searchTerm}
-                  currentMatchIndex={currentMatchIndex}
-                  isSynced={isSynced}
-                  isKaraokeEnabled={isKaraokeEnabled}
-                  transcript={transcript}
-                  sensitiveMatches={sensitiveMatches}
-                  onSeek={onSeek}
-                  openProfile={openProfile}
-                  onRenameSpeaker={handleRenameSpeaker}
-                  transcriptEndRef={transcriptEndRef as any}
-                  scrollElementRef={scrollContainerRef}
-                />
+                {isScrollReady ? (
+                  <TranscriptContent
+                    fontSize={fontSize}
+                    isDark={isDark}
+                    t={t}
+                    activeTranscriptSourceMeta={activeTranscriptSourceMeta}
+                    appLang={appLang}
+                    transcriptSegments={transcriptSegments}
+                    audioCurrentTime={audioCurrentTime}
+                    searchTerm={searchTerm}
+                    currentMatchIndex={currentMatchIndex}
+                    isSynced={isSynced}
+                    isKaraokeEnabled={isKaraokeEnabled}
+                    transcript={transcript}
+                    sensitiveMatches={sensitiveMatches}
+                    onSeek={onSeek}
+                    openProfile={openProfile}
+                    onRenameSpeaker={handleRenameSpeaker}
+                    transcriptEndRef={transcriptEndRef as any}
+                    scrollElementRef={scrollContainerRef}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 opacity-0">
+                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
               {status === 'completed' && (
                 <div className="h-32 md:h-40 flex items-center justify-center">

@@ -142,13 +142,14 @@ export const useTranscriptSync = (
     if (!transcript || !isSynced) return [];
 
     const toSeconds = (h: string | undefined, m: string, s: string) => {
-      const hours = h ? parseInt(h) : 0;
-      const minutes = parseInt(m);
-      const seconds = parseInt(s);
+      const parseBengali = (str: string) => str ? parseInt(str.replace(/[০-৯]/g, match => '0123456789'['০১২৩৪৫৬৭৮৯'.indexOf(match)]), 10) : 0;
+      const hours = h ? parseBengali(h) : 0;
+      const minutes = parseBengali(m);
+      const seconds = parseBengali(s);
       return hours * 3600 + minutes * 60 + seconds;
     };
 
-    const parts = transcript.split(/(?:\[|\b)((?:\d{1,2}:)?\d{1,2}:\d{2})(?:\]|\b)/);
+    const parts = transcript.split(/(?:\[|\b)((?:[0-9০-৯]{1,2}:)?[0-9০-৯]{1,2}:[0-9০-৯]{2})(?:\]|\b)/);
     const finalSegments: any[] = [];
     let lastTime = 0;
 
@@ -167,7 +168,7 @@ export const useTranscriptSync = (
 
       let time = lastTime;
       if (timeStr) {
-        const timeMatch = timeStr.match(/(?:(\d{1,2}):)?(\d{1,2}):(\d{2})/);
+        const timeMatch = timeStr.match(/(?:([0-9০-৯]{1,2}):)?([0-9০-৯]{1,2}):([0-9০-৯]{2})/);
         if (timeMatch) {
           time = toSeconds(timeMatch[1], timeMatch[2], timeMatch[3]);
           lastTime = time;

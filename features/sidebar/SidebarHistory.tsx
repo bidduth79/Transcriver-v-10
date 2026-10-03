@@ -95,7 +95,17 @@ export const SidebarHistory = ({
     // Group the filtered items
     const groups: any = {};
     filtered.forEach((item: any) => {
-      const d = new Date(item.date).toLocaleDateString('en-US');
+      // Optimize: Avoid slow toLocaleDateString in tight loops
+      let d = 'Unknown Date';
+      if (item.date) {
+        try {
+          const dateObj = new Date(item.date);
+          if (!isNaN(dateObj.getTime())) {
+            // Fast zero-padded formatting (MM/DD/YYYY)
+            d = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+          }
+        } catch(e) {}
+      }
       if (!groups[d]) groups[d] = [];
       groups[d].push(item);
     });
@@ -124,7 +134,22 @@ export const SidebarHistory = ({
   const availableDateStrings = useMemo(() => {
     const dates = new Set<string>();
     (fullHistory || history || []).forEach((item: any) => {
-      dates.add(new Date(item.date).toLocaleDateString('en-US'));
+      if (item?.date) {
+        try {
+          const dateStr = item.date;
+          if (dateStr.length >= 10 && dateStr[4] === '-' && dateStr[7] === '-') {
+            const year = dateStr.substring(0, 4);
+            const month = parseInt(dateStr.substring(5, 7), 10);
+            const day = parseInt(dateStr.substring(8, 10), 10);
+            dates.add(`${month}/${day}/${year}`);
+          } else {
+            const dateObj = new Date(dateStr);
+            if (!isNaN(dateObj.getTime())) {
+              dates.add(`${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`);
+            }
+          }
+        } catch(e) {}
+      }
     });
     return dates;
   }, [fullHistory, history]);
@@ -160,7 +185,7 @@ export const SidebarHistory = ({
         // Small delay to allow FileInfoSection to render and update DOM heights
         setTimeout(() => {
           try {
-            rowVirtualizer.scrollToIndex(index, { align: 'center', behavior: 'smooth' });
+            rowVirtualizer.scrollToIndex(index, { align: 'auto', behavior: 'smooth' });
           } catch (e) {
             // ignore
           }

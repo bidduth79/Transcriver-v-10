@@ -94,7 +94,7 @@ export const SummaryLiveReport: React.FC<SummaryLiveReportProps> = ({
                 <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-md rounded-[2.2rem] p-4 flex items-center justify-center z-20 animate-in fade-in zoom-in-95 duration-200">
                    <p className="text-[12px] text-white font-medium leading-relaxed text-center font-stylish-bn overflow-y-auto custom-scrollbar max-h-full">
                       {highlightText(
-                        sentences[idx].replace(/\*\*.*?\*\*/g, '').replace(/\[\d{1,2}:\d{2}\]/g, '').replace(/Speaker \d+\s*:/gi, '').replace(/^\.\.\.|\.\.\.$/g, '').trim(),
+                        sentences[idx].replace(/\*\*.*?\*\*/g, '').replace(/\[[0-9০-৯]{1,2}:[0-9০-৯]{2}\]/g, '').replace(/Speaker \d+\s*:/gi, '').replace(/^\.\.\.|\.\.\.$/g, '').trim(),
                         data.searchTerm
                       )}
                    </p>

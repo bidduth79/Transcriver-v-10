@@ -420,7 +420,7 @@ export const useTranscription = (
         }, delayMs);
       };
 
-      // Step 1 (১.৫ সেকেন্ড পর): শুধুমাত্র ইন-মেমোরি হিস্ট্রি ও IndexedDB-তে ব্যাকগ্রাউন্ড সেভ
+      // Step 1 (৫.০ সেকেন্ড পর - টোস্ট চলে যাওয়ার পর): শুধুমাত্র ইন-মেমোরি হিস্ট্রি ও IndexedDB-তে ব্যাকগ্রাউন্ড সেভ
       runOnIdle(async () => {
         try {
           const { useHistoryStore } = await import('./useHistoryStore');
@@ -430,9 +430,9 @@ export const useTranscription = (
         } catch (e) {
           console.warn("Background history save notice:", e);
         }
-      }, 1500);
+      }, 5000);
 
-      // Step 2 (৩.০ সেকেন্ড পর): এপিআই স্ট্যাটস ও সিস্টেম লগ
+      // Step 2 (৬.৫ সেকেন্ড পর): এপিআই স্ট্যাটস ও সিস্টেম লগ
       runOnIdle(async () => {
         try {
           await incrementTotalCalls('Transcription', modelName, checkProvider.source);
@@ -445,9 +445,9 @@ export const useTranscription = (
         } catch (e) {
           console.warn("Background stats logging notice:", e);
         }
-      }, 3000);
+      }, 6500);
 
-      // Step 3 (৪.৫ সেকেন্ড পর): ফাইল ক্লিনআপ ও অপশনাল বিজিবি অ্যানালাইসিস
+      // Step 3 (৮.০ সেকেন্ড পর): ফাইল ক্লিনআপ ও অপশনাল বিজিবি অ্যানালাইসিস
       runOnIdle(async () => {
         try {
           if (uploadedFile?.name) {
@@ -476,7 +476,7 @@ export const useTranscription = (
         } catch (e) {
           console.warn("Background cleanup & analysis notice:", e);
         }
-      }, 4500);
+      }, 8000);
 
       return { success: true, text: fullText };
     } catch (error: any) {

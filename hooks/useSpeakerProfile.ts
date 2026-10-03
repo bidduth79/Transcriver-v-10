@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { getActiveProvider, incrementTotalCalls } from '../services/ApiKeyManager';
 import { GoogleGenAI } from '@google/genai';
 import { SpeakerProfile, SpeakerCustomNote } from '../types/speaker';
@@ -18,7 +18,7 @@ export const useSpeakerProfile = (transcriptContext: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const updateCustomNote = (newNote: SpeakerCustomNote) => {
+  const updateCustomNote = useCallback((newNote: SpeakerCustomNote) => {
     saveCustomNote(newNote);
     setProfile(prev => prev ? { ...prev, customNote: newNote } : null);
     if (speakerName) {
@@ -28,9 +28,9 @@ export const useSpeakerProfile = (transcriptContext: string) => {
         setCachedProfile(speakerName, cached);
       }
     }
-  };
+  }, [speakerName]);
 
-  const openProfile = async (name: string, ignoreCache: boolean = false) => {
+  const openProfile = useCallback(async (name: string, ignoreCache: boolean = false) => {
     setSpeakerName(name);
     setIsOpen(true);
     setError('');
@@ -220,10 +220,10 @@ Do not include markdown blocks like \`\`\`json, just return the raw JSON object.
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [transcriptContext]);
 
-  const closeProfile = () => setIsOpen(false);
-  const refreshProfile = () => openProfile(speakerName, true);
+  const closeProfile = useCallback(() => setIsOpen(false), []);
+  const refreshProfile = useCallback(() => openProfile(speakerName, true), [speakerName]);
 
   return {
     isOpen,

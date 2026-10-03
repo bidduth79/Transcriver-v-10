@@ -36,7 +36,24 @@ export function getSidebarProps(core: any) {
     groupHistory: (items: any) => {
       const groups: any = {};
       (items || []).forEach((item: any) => {
-        const d = item?.date ? new Date(item.date).toLocaleDateString('en-US') : 'Unknown';
+        let d = 'Unknown';
+        if (item?.date) {
+          try {
+            // Very fast date parsing for format: "YYYY-MM-DDTHH:mm:ss.sssZ"
+            const dateStr = item.date;
+            if (dateStr.length >= 10 && dateStr[4] === '-' && dateStr[7] === '-') {
+              const year = dateStr.substring(0, 4);
+              const month = parseInt(dateStr.substring(5, 7), 10);
+              const day = parseInt(dateStr.substring(8, 10), 10);
+              d = `${month}/${day}/${year}`;
+            } else {
+              const dateObj = new Date(dateStr);
+              if (!isNaN(dateObj.getTime())) {
+                d = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+              }
+            }
+          } catch(e) {}
+        }
         if (!groups[d]) groups[d] = [];
         groups[d].push(item);
       });

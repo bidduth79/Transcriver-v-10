@@ -7,7 +7,7 @@ export const escapeRegExp = (string: string) => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
 
-const TIMESTAMP_REGEX = /^[\*\_\[\(\s]*((?:\d{1,2}:)?\d{1,2}:\d{2})[\*\_\]\)\s]*\s+(.*)/;
+const TIMESTAMP_REGEX = /^[\*\_\[\(\s]*((?:[0-9০-৯]{1,2}:)?[0-9০-৯]{1,2}:[0-9০-৯]{2})[\*\_\]\)\s]*\s+(.*)/;
 const GENERIC_NAMES = ['speaker', 'male', 'female', 'unknown', 'host', 'guest', 'interviewer', 'interviewee', 'announcer', 'voice', 'person'];
 
 const isProperName = (name: string) => {
@@ -27,7 +27,8 @@ export const FormattedTranscript = React.memo(({
   sensitiveMatches = [],
   onSeek,
   onSpeakerClick,
-  onRenameSpeaker
+  onRenameSpeaker,
+  scrollElementRef
 }: any) => {
   const matchIndexRef = useRef(0);
   
@@ -40,7 +41,15 @@ export const FormattedTranscript = React.memo(({
   // Pre-parse the entire transcript ONCE per text change (0ms re-render overhead)
   const parsedLines = useMemo(() => {
     if (!text) return [];
-    return text.split('\n').map((line: string) => {
+    
+    // Force a newline before any timestamp like [07:41] or (1:23:45) so that inline speakers get separated properly
+    const textWithNewlines = text.replace(/([\[\(](?:[0-9০-৯]{1,2}:)?[0-9০-৯]{1,2}:[0-9০-৯]{2}[\]\)])/g, '\n$1');
+    
+    return textWithNewlines
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map((line: string) => {
       const timestampMatch = line.match(TIMESTAMP_REGEX);
       let timestamp = '';
       let content = line;
@@ -64,14 +73,44 @@ export const FormattedTranscript = React.memo(({
     });
   }, [text]);
 
+  const virtualizer = useVirtualizer({
+    count: parsedLines.length,
+    getScrollElement: () => scrollElementRef?.current,
+    estimateSize: () => 36,
+    overscan: 20,
+  });
+
   if (!text) return null;
 
+  const isSearchActive = !!(searchTerm && searchTerm.trim());
+
+  const itemsToRender = isSearchActive
+    ? parsedLines.map((line: any, idx: number) => ({ index: idx, line }))
+    : virtualizer.getVirtualItems().map((v: any) => ({ index: v.index, line: parsedLines[v.index], virtualRow: v }));
+
   return (
-    <div className="space-y-1.5 selection:bg-indigo-500/30">
-      {parsedLines.map(({ timestamp, parsedParts }: any, i: number) => (
+    <div 
+      className={`selection:bg-indigo-500/30 ${isSearchActive ? 'space-y-1.5' : ''}`}
+      style={!isSearchActive ? {
+        height: `${virtualizer.getTotalSize()}px`,
+        width: '100%',
+        position: 'relative'
+      } : undefined}
+    >
+      {itemsToRender.map(({ index: i, line: { timestamp, parsedParts }, virtualRow }: any) => (
         <div 
-          key={i} 
-          className="mb-1.5 min-h-[1.5em] leading-relaxed flex items-start group [content-visibility:auto] [contain-intrinsic-size:0_36px]"
+          key={i}
+          ref={virtualRow ? virtualizer.measureElement : undefined}
+          data-index={i}
+          style={virtualRow ? {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            transform: `translateY(${virtualRow.start}px)`,
+            paddingBottom: '6px'
+          } : { contentVisibility: 'auto', containIntrinsicSize: '36px' }}
+          className={`leading-relaxed flex items-start group ${!virtualRow && !isSearchActive ? 'mb-1.5 min-h-[1.5em]' : ''}`}
         >
           {timestamp && (
             <span 

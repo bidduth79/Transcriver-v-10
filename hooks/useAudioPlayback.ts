@@ -1,16 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 export const useAudioPlayback = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
 
-  const handleTimeUpdate = () => {
+  const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
       setAudioCurrentTime(audioRef.current.currentTime);
     }
-  };
+  }, []);
 
-  const handleSeek = (time: string) => {
+  const handleSeek = useCallback((time: string) => {
     if (!audioRef.current) return;
     const cleanTime = time.replace(/[\[\]]/g, '');
     const parts = cleanTime.split(/[-:]/).map(s => s.trim()).filter(s => s);
@@ -24,7 +24,7 @@ export const useAudioPlayback = () => {
     
     audioRef.current.currentTime = seconds;
     audioRef.current.play();
-  };
+  }, []);
 
   return { audioRef, audioCurrentTime, handleSeek, handleTimeUpdate };
 };

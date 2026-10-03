@@ -44,7 +44,10 @@ export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm
 
   const exportTxt = () => {
     try {
-      const safeTranscript = transcript || '';
+      let safeTranscript = transcript || '';
+      if (typeof safeTranscript === 'string') {
+        safeTranscript = safeTranscript.replace(/([\[\(](?:[0-9০-৯]{1,2}:)?[0-9০-৯]{1,2}:[0-9০-৯]{2}[\]\)])/g, '\n$1').trim();
+      }
       const blob = new Blob([safeTranscript], { type: 'text/plain;charset=utf-8' });
       downloadFile(blob, 'txt');
     } catch (error: any) {
@@ -55,7 +58,7 @@ export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm
 
   const exportWord = () => {
     try {
-      const safeTranscript = (typeof transcript === 'string' ? transcript : '') || '';
+      const safeTranscript = ((typeof transcript === 'string' ? transcript : '') || '').replace(/([\[\(](?:[0-9০-৯]{1,2}:)?[0-9০-৯]{1,2}:[0-9০-৯]{2}[\]\)])/g, '\n$1').trim();
       // Convert speaker tags for Word
       let processedTranscript = safeTranscript.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #4338ca;">$1</strong>');
       let htmlContent = processedTranscript.replace(/\n/g, '<br>');
@@ -143,7 +146,7 @@ export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm
         return processed;
       };
 
-      const safeTranscript = (typeof transcript === 'string' ? transcript : '') || '';
+      const safeTranscript = ((typeof transcript === 'string' ? transcript : '') || '').replace(/([\[\(](?:[0-9০-৯]{1,2}:)?[0-9০-৯]{1,2}:[0-9০-৯]{2}[\]\)])/g, '\n$1').trim();
       const lines = safeTranscript.split('\n').filter((l: string) => l && typeof l === 'string');
       printWindow.document.write(`
         <!DOCTYPE html>
@@ -240,15 +243,17 @@ export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm
 
   const exportSRT = () => {
     try {
-      const safeTranscript = (typeof transcript === 'string' ? transcript : '') || '';
+      const safeTranscript = ((typeof transcript === 'string' ? transcript : '') || '').replace(/([\[\(](?:[0-9০-৯]{1,2}:)?[0-9০-৯]{1,2}:[0-9০-৯]{2}[\]\)])/g, '\n$1').trim();
       let srtContent = "";
       const lines = safeTranscript.split('\n').filter((l: string) => l && typeof l === 'string' && l.trim() !== "");
       lines.forEach((line: string, index: number) => {
-        const timeMatch = line.match(/\[(\d{1,2}):(\d{2})\]/);
+        const timeMatch = line.match(/\[([0-9০-৯]{1,2}):([0-9০-৯]{2})\]/);
         let startMins = 0, startSecs = 0;
         if (timeMatch) {
-          startMins = parseInt(timeMatch[1], 10);
-          startSecs = parseInt(timeMatch[2], 10);
+          const mStr = timeMatch[1].replace(/[০-৯]/g, m => '0123456789'['০১২৩৪৫৬৭৮৯'.indexOf(m)]);
+          const sStr = timeMatch[2].replace(/[০-৯]/g, m => '0123456789'['০১২৩৪৫৬৭৮৯'.indexOf(m)]);
+          startMins = parseInt(mStr, 10);
+          startSecs = parseInt(sStr, 10);
         }
         // Calculate end time (start + 5 seconds)
         let endMins = startMins;
@@ -265,7 +270,7 @@ export const DownloadMenu = ({ transcript, fileName, activeColors, t, searchTerm
         const pad = (n: number) => n.toString().padStart(2, '0');
         srtContent += `${index + 1}\n`;
         srtContent += `${pad(startHours)}:${pad(startRemMins)}:${pad(startSecs)},000 --> ${pad(endHours)}:${pad(endRemMins)}:${pad(endSecs)},000\n`;
-        srtContent += `${line.replace(/\*\*.*?\*\*:/, '').replace(/\[\d{1,2}:\d{2}\]\s*/, '').trim()}\n\n`;
+        srtContent += `${line.replace(/\*\*.*?\*\*:/, '').replace(/\[[0-9০-৯]{1,2}:[0-9০-৯]{2}\]\s*/, '').trim()}\n\n`;
       });
       const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
       downloadFile(blob, 'srt');

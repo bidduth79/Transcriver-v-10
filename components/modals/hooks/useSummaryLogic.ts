@@ -99,7 +99,7 @@ export function useSummaryStats(searchTerm: string, transcript: string, fileMeta
     let lastKnownTime = "00:00";
 
     lines.forEach((line) => {
-      const timeMatch = line.match(/\[(\d{1,2}:\d{2})\]/);
+      const timeMatch = line.match(/\[([0-9০-৯]{1,2}:[0-9০-৯]{2})\]/);
       if (timeMatch) {
         if (currentTurnText.trim()) turns.push({ startTime: lastKnownTime, text: currentTurnText });
         lastKnownTime = timeMatch[1];
@@ -116,7 +116,7 @@ export function useSummaryStats(searchTerm: string, transcript: string, fileMeta
     turns.forEach((turn, index) => {
       const cleanText = turn.text
         .replace(/\*\*.*?\*\*/g, '')
-        .replace(/\[\d{1,2}:\d{2}\]/g, '')
+        .replace(/\[[0-9০-৯]{1,2}:[0-9০-৯]{2}\]/g, '')
         .replace(/Speaker \d+\s*:/gi, '')
         .replace(/<[^>]*>/g, '')
         .trim();

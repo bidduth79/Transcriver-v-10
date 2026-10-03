@@ -69,7 +69,7 @@ export const SummaryHistoryList: React.FC<SummaryHistoryListProps> = ({
                       <div key={sIdx} className="p-3 rounded-xl bg-white/5 border border-white/10">
                         <p className="text-[12px] font-medium text-white/90 leading-relaxed font-stylish-bn italic">
                           {highlightText(
-                            snip.replace(/\*\*.*?\*\*/g, '').replace(/\[\d{1,2}:\d{2}\]/g, '').replace(/Speaker \d+\s*:/gi, '').replace(/^\.\.\.|\.\.\.$/g, '').trim(), 
+                            snip.replace(/\*\*.*?\*\*/g, '').replace(/\[[0-9০-৯]{1,2}:[0-9০-৯]{2}\]/g, '').replace(/Speaker \d+\s*:/gi, '').replace(/^\.\.\.|\.\.\.$/g, '').trim(), 
                             item.searchTerm
                           )}
                         </p>

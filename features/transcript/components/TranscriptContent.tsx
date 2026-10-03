@@ -24,7 +24,7 @@ export interface TranscriptContentProps {
   scrollElementRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export const TranscriptContent: React.FC<TranscriptContentProps> = ({
+export const TranscriptContent: React.FC<TranscriptContentProps> = React.memo(({
   fontSize,
   isDark,
   t,
@@ -97,4 +97,4 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         <div ref={transcriptEndRef} />
     </div>
   );
-};
+});
