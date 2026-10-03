@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { YouTubeInput } from '../tools/YouTubeInput.tsx';
+import { isMicrophoneEnabled } from '../../hooks/useAudioRecorder.ts';
 
 export const AudioVideoInput = ({
   t,
@@ -20,6 +21,13 @@ export const AudioVideoInput = ({
   onStopRecording,
   formatTime
 }: any) => {
+  const [micActive, setMicActive] = useState(isMicrophoneEnabled());
+
+  useEffect(() => {
+    const handleToggle = () => setMicActive(isMicrophoneEnabled());
+    window.addEventListener('microphone_feature_toggle', handleToggle);
+    return () => window.removeEventListener('microphone_feature_toggle', handleToggle);
+  }, []);
   return (
     <div className="px-6 pt-6 shrink-0 mt-8 md:mt-0">
       <div className="flex items-center gap-3 bg-slate-950 px-5 py-3 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.4)] border border-white/10 mb-4 h-[52px]">
@@ -52,13 +60,15 @@ export const AudioVideoInput = ({
                     <svg className="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
                 </button>
                 
-                <button 
-                  onClick={() => { setActiveTab('record'); onStartRecording(); }}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-md group cursor-pointer ${activeTab === 'record' ? 'bg-red-500 text-white ring-2 ring-offset-2 ring-red-200' : (isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400' : 'bg-white hover:bg-slate-50 text-slate-400')}`}
-                  title="Record Audio"
-                >
-                    <svg className="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-                </button>
+                {micActive && (
+                  <button 
+                    onClick={() => { setActiveTab('record'); onStartRecording(); }}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-md group cursor-pointer ${activeTab === 'record' ? 'bg-red-500 text-white ring-2 ring-offset-2 ring-red-200' : (isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-400' : 'bg-white hover:bg-slate-50 text-slate-400')}`}
+                    title={appLang === 'bn' ? "লাইভ অডিও রেকর্ড করুন" : "Record Live Audio"}
+                  >
+                      <svg className="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                  </button>
+                )}
 
                 <button 
                   onClick={() => setActiveTab('youtube')}
@@ -87,6 +97,16 @@ export const AudioVideoInput = ({
             
             {activeTab === 'folder' && (
                 <p className="text-[10px] text-center font-bold opacity-40 uppercase tracking-widest">{appLang === 'bn' ? 'একাধিক ফাইল আপলোড করতে ক্লিক করুন (MP3, WAV, MP4, OPUS)' : 'Click to upload multiple files (MP3, WAV, MP4, OPUS)'}</p>
+            )}
+
+            {activeTab === 'record' && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center animate-in fade-in">
+                    <p className="text-[11px] font-bold text-amber-500">
+                        {appLang === 'bn' 
+                            ? '🎙️ মাইক্রোফোন অপশনটি সাময়িকভাবে স্থগিত রাখা হয়েছে।' 
+                            : '🎙️ Live microphone recording is temporarily paused.'}
+                    </p>
+                </div>
             )}
 
             {(activeTab === 'youtube' || activeTab === 'facebook') && (

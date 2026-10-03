@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { getApiUrl } from '../../../services/api';
+import { isLocalServerEnabled } from '../../../utils/config';
 
 export const useInformationModal = ({ addToast, appLang }: any) => {
     const [activeTab, setActiveTab] = useState('sidebar');
@@ -9,6 +10,10 @@ export const useInformationModal = ({ addToast, appLang }: any) => {
     const isResizing = useRef(false);
 
     const runDbSetup = async () => {
+        if (!isLocalServerEnabled()) {
+            if (addToast) addToast(appLang === 'bn' ? 'লোকাল জেম্প সার্ভার অপশনটি সেটিংস থেকে বন্ধ রাখা হয়েছে।' : 'Local XAMPP Server is currently disabled in Settings.', 'warning');
+            return;
+        }
         try {
             const url = getApiUrl('setup.php');
             console.log("Attempting to DB Setup at URL:", url);

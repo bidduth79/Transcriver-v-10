@@ -1,7 +1,7 @@
 
 import { fetchDataDual, saveDataDual, deleteDataDual } from './api.ts';
 import { useAppStore } from '../hooks/useAppStore';
-
+import { AUTO_SYNC_XAMPP_ENABLED, AUTO_SYNC_SUPABASE_ENABLED, AUTO_SYNC_FIREBASE_ENABLED } from './syncEngine';
 
 export const DB_NAME = 'LiCellStudioDB_v5_Final'; 
 export const DB_VERSION = 3;
@@ -54,15 +54,10 @@ export const addToStore = async (storeName: string, data: any) => {
     request.onerror = () => reject(request.error);
   });
 
-  if (storeName !== STORES.YOUTUBE_AUDIO) {
+  const isAutoSyncActive = AUTO_SYNC_XAMPP_ENABLED || AUTO_SYNC_SUPABASE_ENABLED || AUTO_SYNC_FIREBASE_ENABLED;
+  if (storeName !== STORES.YOUTUBE_AUDIO && isAutoSyncActive) {
     saveDataDual(storeName, data).catch(err => {
-      // Hide 'Failed to fetch' errors as they are expected in preview mode (CORS/Mixed Content)
-      if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
-        console.error(`Background save failed for ${storeName}:`, err);
-        useAppStore.getState().setAppError(`ডাটা সেভ করতে সমস্যা হয়েছে (${storeName}): ` + err.message);
-      } else {
-        console.warn(`Background save failed (expected in preview): ${err.message}`);
-      }
+      console.warn(`Background save failed for ${storeName}:`, err);
     });
   }
   return true;
@@ -78,33 +73,6 @@ export const getFromStore = async (storeName: string, id: string) => {
     request.onerror = () => reject(request.error);
   });
 
-  if (storeName !== STORES.YOUTUBE_AUDIO) {
-     // Cooldown: only background-fetch once per item every 5 minutes
-     const cooldownKey = `sync_item_${storeName}_${id}`;
-     const lastSync = parseInt(localStorage.getItem(cooldownKey) || '0', 10);
-     const now = Date.now();
-     if (now - lastSync > SYNC_COOLDOWN) {
-       localStorage.setItem(cooldownKey, now.toString());
-       fetchDataDual(storeName).then(async (all) => {
-          const item = all.find((i: any) => i.id === id);
-          if (item) {
-             const db2 = await initDB();
-             const tx = db2.transaction([storeName], 'readwrite');
-             tx.objectStore(storeName).put(item);
-          }
-       }).catch(err => {
-         localStorage.removeItem(cooldownKey);
-         // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
-         if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
-           console.error(`Background fetch failed for ${storeName}:`, err);
-           useAppStore.getState().setAppError(`ডাটা ফেচ করতে সমস্যা হয়েছে (${storeName}): ` + err.message);
-         } else {
-           console.warn(`Background fetch failed (expected in preview): ${err.message}`);
-         }
-       });
-     }
-  }
-
   return localItem;
 };
 
@@ -118,12 +86,15 @@ export const getAllFromStore = async (storeName: string, forceSync = false) => {
     request.onerror = () => reject(request.error);
   });
 
-  if (storeName !== STORES.YOUTUBE_AUDIO) {
+  const isAutoSyncActive = AUTO_SYNC_XAMPP_ENABLED || AUTO_SYNC_SUPABASE_ENABLED || AUTO_SYNC_FIREBASE_ENABLED;
+
+  // Only run background cloud sync if explicitly forced (manual sync) and auto-sync is active
+  if (forceSync && storeName !== STORES.YOUTUBE_AUDIO && isAutoSyncActive) {
     const lastSync = parseInt(localStorage.getItem(`sync_${storeName}`) || '0', 10);
     const now = Date.now();
-    if (forceSync || now - lastSync > SYNC_COOLDOWN) {
+    if (now - lastSync > SYNC_COOLDOWN) {
       localStorage.setItem(`sync_${storeName}`, now.toString());
-      fetchDataDual(storeName).then(async (cloudData) => {
+      fetchDataDual(storeName, true).then(async (cloudData) => {
         if (cloudData && Array.isArray(cloudData)) {
           const db2 = await initDB();
           const tx = db2.transaction([storeName], 'readwrite');
@@ -135,13 +106,7 @@ export const getAllFromStore = async (storeName: string, forceSync = false) => {
         }
       }).catch(err => {
          localStorage.removeItem(`sync_${storeName}`);
-         // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
-         if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
-           console.error(`Background sync failed for ${storeName}:`, err);
-           useAppStore.getState().setAppError(`ডাটা সিঙ্ক করতে সমস্যা হয়েছে (${storeName}): ` + err.message);
-         } else {
-           console.warn(`Background sync failed (expected in preview): ${err.message}`);
-         }
+         console.warn(`Background sync failed for ${storeName}:`, err);
       });
     }
   }
@@ -159,15 +124,10 @@ export const deleteFromStore = async (storeName: string, id: string) => {
     request.onerror = () => reject(request.error);
   });
 
-  if (storeName !== STORES.YOUTUBE_AUDIO) {
+  const isAutoSyncActive = AUTO_SYNC_XAMPP_ENABLED || AUTO_SYNC_SUPABASE_ENABLED || AUTO_SYNC_FIREBASE_ENABLED;
+  if (storeName !== STORES.YOUTUBE_AUDIO && isAutoSyncActive) {
     deleteDataDual(storeName, id).catch(err => {
-      // Hide 'Failed to fetch' errors from UI as they are expected in preview mode (CORS/Mixed Content)
-      if (import.meta.env.PROD || !err.message?.includes('Failed to fetch')) {
-        console.error(`Background delete failed for ${storeName}:`, err);
-        useAppStore.getState().setAppError(`ডাটা মুছতে সমস্যা হয়েছে (${storeName}): ` + err.message);
-      } else {
-        console.warn(`Background delete failed (expected in preview): ${err.message}`);
-      }
+      console.warn(`Background delete failed for ${storeName}:`, err);
     });
   }
   return true;

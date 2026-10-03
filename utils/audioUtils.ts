@@ -65,11 +65,22 @@ export const loadAudioFromStore = async (
   }
 };
 
+let sharedAudioCtx: AudioContext | null = null;
+
 export const playSuccessSound = () => {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
+    
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    
+    const ctx = sharedAudioCtx;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
     const now = ctx.currentTime;
     [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -80,16 +91,11 @@ export const playSuccessSound = () => {
         osc.frequency.value = freq;
         const startTime = now + (i * 0.08);
         gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.8);
+        gain.gain.linearRampToValueAtTime(0.08, startTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
         osc.start(startTime);
-        osc.stop(startTime + 0.8);
+        osc.stop(startTime + 0.6);
     });
-    setTimeout(() => {
-      try {
-        if (ctx.state !== 'closed') ctx.close();
-      } catch (e) {}
-    }, 1200);
   } catch (e) {
     console.error("Failed to play notification sound:", e);
   }

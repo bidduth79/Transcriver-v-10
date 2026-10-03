@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/hooks/useAppStore';
 import { getSensitiveKeywords } from '../../../utils/sensitiveKeywords';
 
@@ -13,11 +13,11 @@ export const useSidebar = (appLang: string, handleFileChange: any, audioRef: any
     setSensitiveKeywordsList(getSensitiveKeywords());
   }, [sensitiveKeywordsUpdated]);
 
-  const getSensitiveMatches = (text: string) => {
+  const getSensitiveMatches = useCallback((text: string) => {
     if (!text) return [];
     const lower = text.toLowerCase();
     return sensitiveKeywords.filter(kw => kw && kw.trim().length > 0 && lower.includes(kw.toLowerCase())).sort((a, b) => b.length - a.length);
-  };
+  }, [sensitiveKeywords]);
 
 
   const formatTime = (s: number) => {

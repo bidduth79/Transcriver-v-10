@@ -185,14 +185,8 @@ export const useTranscriptSync = (
     }
 
     for (let i = 0; i < finalSegments.length; i++) {
-        let nextTime = Infinity;
-        for (let j = i + 1; j < finalSegments.length; j++) {
-            if (finalSegments[j].start > finalSegments[i].start) {
-                nextTime = finalSegments[j].start;
-                break;
-            }
-        }
-        finalSegments[i].end = nextTime;
+        const next = finalSegments[i + 1];
+        finalSegments[i].end = (next && next.start > finalSegments[i].start) ? next.start : Infinity;
     }
     
     return finalSegments;
@@ -247,19 +241,40 @@ export const useSensitiveKeywords = (transcript: string) => {
   const sensitiveMatches = useMemo(() => {
     if (!transcript || sensitiveKeywords.length === 0) return [];
     const lower = transcript.toLowerCase();
-    return sensitiveKeywords.filter(kw => kw && kw.trim().length > 0 && lower.includes(kw.toLowerCase())).sort((a, b) => b.length - a.length);
+    return sensitiveKeywords
+      .filter(kw => typeof kw === 'string' && kw.trim().length >= 2 && lower.includes(kw.trim().toLowerCase()))
+      .sort((a, b) => b.length - a.length);
   }, [transcript, sensitiveKeywords]);
 
   const sensitiveWordCounts = useMemo(() => {
     if (!transcript || sensitiveMatches.length === 0) return [];
     
-    return sensitiveMatches.map(kw => {
-      // Escape for regex and count all case-insensitive occurrences
-      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'gi');
-      const count = (transcript.match(regex) || []).length;
-      return { word: kw, count };
-    });
+    const counts: Record<string, number> = {};
+    sensitiveMatches.forEach(kw => { counts[kw] = 0; });
+
+    const cleanMatches = sensitiveMatches
+      .filter(kw => typeof kw === 'string' && kw.trim().length >= 2)
+      .map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+    if (cleanMatches.length === 0) return [];
+
+    try {
+      const combinedRegex = new RegExp(cleanMatches.join('|'), 'gi');
+      const allMatches = transcript.match(combinedRegex) || [];
+      allMatches.forEach(m => {
+        const lower = m.toLowerCase();
+        for (const kw of sensitiveMatches) {
+          if (kw.toLowerCase() === lower) {
+            counts[kw] = (counts[kw] || 0) + 1;
+            break;
+          }
+        }
+      });
+    } catch (e) {
+      console.warn("Sensitive word count notice:", e);
+    }
+    
+    return sensitiveMatches.map(kw => ({ word: kw, count: counts[kw] || 0 }));
   }, [transcript, sensitiveMatches]);
 
   const isSensitive = sensitiveMatches.length > 0;

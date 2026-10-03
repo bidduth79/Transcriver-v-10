@@ -35,47 +35,89 @@ export const blobToBase64 = (blob: Blob): Promise<string> => {
 };
 
 export const removeRepetitiveBlocks = (text: string): string => {
-    if (!text || text.length < 500) return text;
+    if (!text || text.length < 100) return text;
     
-    const checkStartIndex = text.length > 4000 ? text.length - 3000 : 0;
-    const prefix = text.length > 4000 ? text.substring(0, checkStartIndex) : '';
-    const textToCheck = text.length > 4000 ? text.substring(checkStartIndex) : text;
-  
-    const lines = textToCheck.split('\n');
-    const cleanedLines: string[] = [];
-    const recentLines: string[] = [];
-    const MAX_HISTORY = 30;
-    let loopDetected = false;
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line || line.length <= 25) {
-            cleanedLines.push(lines[i]);
-            continue;
-        }
-  
-        const contentWithoutTimeAndSpeaker = line.replace(/^\[\d{1,2}:\d{2}(:\d{2})?\]\s*(\*\*.*?\*\*\s*)?/, '').trim();
-        
-        if (contentWithoutTimeAndSpeaker.length > 25) {
-            const occurrences = recentLines.filter(l => l === contentWithoutTimeAndSpeaker).length;
-            if (occurrences >= 4) {
-                console.warn('Hallucination loop detected. Truncating transcript tail.');
-                loopDetected = true;
-                break;
+    let cleaned = text;
+
+    // 1. Paragraph-level deduplication across the entire text
+    const paragraphs = cleaned.split(/\n+/);
+    const deduplicatedParagraphs: string[] = [];
+    const seenParagraphs = new Map<string, number>();
+
+    for (const para of paragraphs) {
+        const trimmed = para.trim();
+        if (!trimmed) continue;
+
+        // Normalize text for comparison by stripping timestamps, bold markers, and common punctuation
+        const normalized = trimmed
+            .replace(/^\[\d{1,2}:\d{2}(:\d{2})?\]\s*(\*\*.*?\*\*\s*)?/, '')
+            .replace(/[।,?!.\s]/g, '')
+            .slice(0, 120);
+
+        if (normalized.length > 20) {
+            const count = seenParagraphs.get(normalized) || 0;
+            if (count >= 2) {
+                // Skip repetitive paragraph
+                continue;
             }
-            
-            recentLines.push(contentWithoutTimeAndSpeaker);
-            if (recentLines.length > MAX_HISTORY) {
-                recentLines.shift();
-            }
+            seenParagraphs.set(normalized, count + 1);
         }
-        
-        cleanedLines.push(lines[i]);
+        deduplicatedParagraphs.push(para);
     }
-    
-    if (!loopDetected) return text;
-    return prefix + cleanedLines.join('\n');
-  };
+    cleaned = deduplicatedParagraphs.join('\n\n');
+
+    // 2. Sentence-level deduplication (catches repeating sentences within unformatted blocks)
+    const sentenceTokens = cleaned.split(/([।?!]|\n+)/);
+    const sentenceUnits: string[] = [];
+    for (let i = 0; i < sentenceTokens.length; i += 2) {
+        const unit = (sentenceTokens[i] || '') + (sentenceTokens[i + 1] || '');
+        if (unit.trim()) sentenceUnits.push(unit);
+    }
+
+    const finalSentences: string[] = [];
+    const recentSentences: string[] = [];
+    for (const unit of sentenceUnits) {
+        const norm = unit.replace(/[।,?!.\s]/g, '').trim();
+        if (norm.length > 15) {
+            const isRepeat = recentSentences.some(prev => prev === norm);
+            if (isRepeat) {
+                continue; // Skip consecutive or near-consecutive repeating sentence
+            }
+            recentSentences.push(norm);
+            if (recentSentences.length > 6) recentSentences.shift();
+        }
+        finalSentences.push(unit);
+    }
+    cleaned = finalSentences.join('');
+
+    // 3. Substring sliding-window loop detector for degenerative autoregressive model loops
+    // Handles repetitive phrases like "এইটা যখন পৃথিবীতে রোটেট হলো,..." repeated across boundaries
+    for (let chunkSize = 300; chunkSize >= 40; chunkSize -= 30) {
+        let loopFound = true;
+        let guardCounter = 0;
+        while (loopFound && guardCounter < 50) {
+            guardCounter++;
+            loopFound = false;
+            for (let i = 0; i < cleaned.length - chunkSize * 2; i++) {
+                const sub = cleaned.substring(i, i + chunkSize);
+                if (sub.trim().length < chunkSize * 0.7) continue;
+
+                const nextSub = cleaned.substring(i + chunkSize, i + chunkSize * 2);
+                if (sub === nextSub) {
+                    let repeatEnd = i + chunkSize * 2;
+                    while (cleaned.substring(repeatEnd, repeatEnd + chunkSize) === sub) {
+                        repeatEnd += chunkSize;
+                    }
+                    cleaned = cleaned.substring(0, i + chunkSize) + cleaned.substring(repeatEnd);
+                    loopFound = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    return cleaned.trim();
+};
   
 export const isFormatNativelySupportedByGemini = (mimeType: string): boolean => {
   if (!mimeType) return false;

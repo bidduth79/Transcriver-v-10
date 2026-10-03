@@ -39,6 +39,11 @@ export const TranscriptToolbar = ({
 }: any) => {
   const { handleDelete } = useTranscriptToolbar(setTranscript, setStatus, setActiveHistoryId);
 
+  const isTranscriptUnicode = React.useMemo(() => {
+    if (!transcript) return true;
+    return isUnicode(transcript.slice(0, 500));
+  }, [transcript]);
+
   return (
     <div className="relative px-4 md:px-6 py-2 md:py-3 border-b border-white/10 flex items-center justify-between bg-slate-950 z-20 shrink-0 gap-3 flex-wrap">
       <div className="flex items-center space-x-3 group cursor-default shrink-0 mr-auto">
@@ -137,24 +142,24 @@ export const TranscriptToolbar = ({
           <div className="flex items-center bg-white/5 rounded-2xl p-0.5 border border-white/10">
             <button 
               onClick={() => {
-                if (!isUnicode(transcript || '')) {
+                if (!isTranscriptUnicode) {
                   setTranscript(bijoyToUnicode(transcript || ''));
                   addToast(appLang === 'bn' ? 'ইউনিকোডে রূপান্তর করা হয়েছে' : 'Converted to Unicode', 'success');
                 }
               }}
-              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${(transcript && isUnicode(transcript)) ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${isTranscriptUnicode ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
               title={appLang === 'bn' ? 'ইউনিকোডে কনভার্ট করুন' : 'Convert to Unicode'}
             >
               ইউ
             </button>
             <button 
               onClick={() => {
-                if (transcript && isUnicode(transcript)) {
+                if (isTranscriptUnicode && transcript) {
                   setTranscript(unicodeToBijoy(transcript));
                   addToast(appLang === 'bn' ? 'বিজয়ে রূপান্তর করা হয়েছে' : 'Converted to Bijoy', 'success');
                 }
               }}
-              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${(!transcript || !isUnicode(transcript)) ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+              className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition-all font-stylish-bn cursor-pointer ${!isTranscriptUnicode ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
               title={appLang === 'bn' ? 'বিজয়তে কনভার্ট করুন' : 'Convert to Bijoy'}
             >
               বি

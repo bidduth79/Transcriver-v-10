@@ -1,5 +1,19 @@
 import { useState, useRef } from 'react';
 
+// ============================================================================
+// 🎙️ মাইক্রোফোন অপশন নিয়ন্ত্রণ (Microphone Feature Toggle)
+// ----------------------------------------------------------------------------
+// ডিফল্টভাবে মাইক্রোফোন বন্ধ থাকে। Settings থেকে অন বা অফ করা যায়।
+export const isMicrophoneEnabled = (): boolean => {
+  return localStorage.getItem('feature_microphone_enabled') === 'true';
+};
+
+export const setMicrophoneEnabled = (enabled: boolean) => {
+  localStorage.setItem('feature_microphone_enabled', enabled ? 'true' : 'false');
+  window.dispatchEvent(new Event('microphone_feature_toggle'));
+};
+// ============================================================================
+
 export const useAudioRecorder = (
   appLang: 'en' | 'bn',
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void,
@@ -11,6 +25,17 @@ export const useAudioRecorder = (
   const recordIntervalRef = useRef<number | null>(null);
 
   const startRecording = async () => {
+    // মাইক্রোফোন ব্যাকএন্ড স্থগিত থাকলে নোটিফিকেশন প্রদর্শন ও প্রসেস বন্ধ
+    if (!isMicrophoneEnabled()) {
+      addToast(
+        appLang === 'bn' 
+          ? "মাইক্রোফোন রেকর্ডিং অপশনটি সেটিংস থেকে বন্ধ রাখা হয়েছে।" 
+          : "Microphone recording is disabled in Settings.", 
+        'info'
+      );
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {

@@ -44,7 +44,15 @@ export const useHistory = (
       const sorted = allHistory.sort((a: HistoryItem, b: HistoryItem) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setHistory(sorted);
       try {
-        sessionStorage.setItem('historyCache', JSON.stringify(sorted.slice(0, 50)));
+        // Cache light metadata to avoid main thread freeze or sessionStorage 5MB quota exhaustion
+        const lightHistory = sorted.slice(0, 30).map(h => ({
+          id: h.id,
+          fileName: h.fileName,
+          date: h.date,
+          duration: h.duration,
+          isFavorite: h.isFavorite
+        }));
+        sessionStorage.setItem('historyCache', JSON.stringify(lightHistory));
       } catch (e) {
         // Ignore quota exceeded
       }

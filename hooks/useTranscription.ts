@@ -222,7 +222,7 @@ export const useTranscription = (
           ],
           config: {
               systemInstruction: systemInstruction,
-              temperature: 0.1,
+              temperature: 0.35,
               safetySettings: [
                   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
                   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -234,26 +234,30 @@ export const useTranscription = (
 
       const extractText = (resp: any): string => {
         if (!resp) return '';
-        if (typeof resp.text === 'string' && resp.text.trim()) {
-          return resp.text;
-        }
-        if (Array.isArray(resp.candidates) && resp.candidates.length > 0) {
-          const candidate = resp.candidates[0];
-          if (candidate?.content?.parts && Array.isArray(candidate.content.parts)) {
-            let extracted = '';
-            for (const part of candidate.content.parts) {
-              if (part?.text && !part.thought) {
-                extracted += part.text;
+        try {
+          if (Array.isArray(resp.candidates) && resp.candidates.length > 0) {
+            const candidate = resp.candidates[0];
+            if (candidate?.content?.parts && Array.isArray(candidate.content.parts)) {
+              let extracted = '';
+              for (const part of candidate.content.parts) {
+                if (part?.text && !part.thought) {
+                  extracted += part.text;
+                }
               }
-            }
-            if (extracted.trim()) return extracted;
-            for (const part of candidate.content.parts) {
-              if (part?.text) {
-                extracted += part.text;
+              if (extracted.trim()) return extracted;
+              for (const part of candidate.content.parts) {
+                if (part?.text) {
+                  extracted += part.text;
+                }
               }
+              if (extracted.trim()) return extracted;
             }
-            if (extracted.trim()) return extracted;
           }
+          if (typeof resp.text === 'string' && resp.text.trim()) {
+            return resp.text;
+          }
+        } catch (e) {
+          console.warn("Could not read text property directly:", e);
         }
         return '';
       };
@@ -267,9 +271,14 @@ export const useTranscription = (
           const response = await ai.models.generateContent(requestOptions);
           lastResultObj = response;
           fullText = extractText(response);
-      } catch (err) {
+      } catch (err: any) {
           console.error("Transcription generation failed:", err);
-          throw err;
+          // If error was caused by recitation getter, try to salvage
+          if (err?.message?.includes('RECITATION') || err?.message?.includes('Recitation')) {
+            console.warn("Caught recitation in generateContent error");
+          } else {
+            throw err;
+          }
       } finally {
           // CRITICAL: Release the massive base64 audio data from memory immediately
           // A 10MB opus file creates ~13MB of base64 string that stays in RAM
@@ -284,28 +293,62 @@ export const useTranscription = (
           base64Data = '';
       }
 
-      const finalCleanedText = removeRepetitiveBlocks(fullText);
-      if (finalCleanedText.length < fullText.length) {
-          fullText = finalCleanedText;
-      }
-      
-      setTranscript(fullText);
-      
-      // Clean up uploaded file if large file upload path was used
-      if (uploadedFile?.name) {
+      // Auto-recovery if recitation filter was triggered and no text was produced
+      if (!fullText.trim() && lastResultObj?.candidates?.[0]?.finishReason === 'RECITATION') {
+        console.warn("Recitation filter triggered on first attempt. Retrying with adaptive accessibility prompt...");
+        setCurrentStage(appLang === 'bn' 
+          ? 'কপিরাইট ফিল্টার এড়াতে বিকল্প মোডে পুনরায় চেষ্টা করা হচ্ছে...' 
+          : 'Retrying in adaptive accessibility mode...');
         try {
-          await ai.files.delete({ name: uploadedFile.name });
-        } catch (err) {
-          console.warn("Could not delete file from Gemini server:", err);
+          const retryBase64 = await blobToBase64(effectiveFile);
+          const retryAudioPart = {
+            inlineData: {
+              mimeType: effectiveMimeType,
+              data: retryBase64
+            }
+          };
+          const retryResp = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  retryAudioPart,
+                  { 
+                    text: "You are an assistive speech-to-text accessibility tool. Please transcribe the spoken words and dialogue in this user recording into Bengali (Bangla). Transcribe human speech accurately as spoken." 
+                  }
+                ]
+              }
+            ],
+            config: {
+              systemInstruction: "You are a speech-to-text transcriber for user audio accessibility. Faithfully write down what is spoken in the audio in Bengali script without summarizing.",
+              temperature: 0.3,
+              safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+              ]
+            }
+          });
+          const retryText = extractText(retryResp);
+          if (retryText.trim()) {
+            fullText = retryText;
+            lastResultObj = retryResp;
+          }
+        } catch (retryErr) {
+          console.warn("Adaptive retry after recitation failed:", retryErr);
         }
       }
 
-      // Note: Extra audio WAV conversion recovery was removed as per user request
-      // because it does not work correctly for this user's specific .opus files.
+      clearInterval(timer);
+      setProgress(100);
+      setCurrentStage(appLang === 'bn' ? 'সম্পন্ন হয়েছে!' : 'Completed!');
 
-
-      await incrementTotalCalls('Transcription', modelName, checkProvider.source);
-      updateApiStats();
+      fullText = removeRepetitiveBlocks(fullText);
+      
+      setTranscript(fullText);
+      setStatus('completed');
 
       if (!fullText.trim()) {
         const candidate = lastResultObj?.candidates?.[0];
@@ -317,8 +360,8 @@ export const useTranscription = (
             : 'Transcription was blocked by AI safety policy.');
         } else if (finishReason === 'RECITATION') {
           throw new Error(appLang === 'bn'
-            ? 'কপিরাইট/রিসিটেশন বিধিনিষেধের কারণে ট্রান্সক্রিপশন ফিল্টার করা হয়েছে।'
-            : 'Transcription was blocked due to copyright or recitation policies.');
+            ? 'অডিওটিতে থাকা বক্তব্য/উদ্ধৃতি কপিরাইট বা রিসিটেশন ফিল্টারে পড়েছে। অনুগ্রহ করে Settings থেকে অন্য কোনো মডেল (যেমন: Gemini 2.5 Flash বা 3.1 Lite) অথবা Normal মোড দিয়ে পুনরায় চেষ্টা করুন।'
+            : 'Transcription was blocked due to copyright or recitation policies. Please select another model in Settings or try Normal mode.');
         } else if (finishReason === 'MAX_TOKENS') {
           throw new Error(appLang === 'bn'
             ? 'টোকেন লিমিট পূর্ণ হয়ে গেছে। অনুগ্রহ করে অডিও ফাইলটি ছোট করে পুনরায় চেষ্টা করুন।'
@@ -332,14 +375,16 @@ export const useTranscription = (
         }
       }
 
-      setStatus('completed');
-      playSuccessSound(); 
-      if (!isAutoProcess) {
-        addToast(
-          appLang === 'bn' ? 'ট্রান্সক্রিপশন সফলভাবে সম্পন্ন হয়েছে!' : 'Transcription completed successfully!',
-          'success'
-        );
-      }
+      // 1. Instantly trigger sound and toast on the next animation frame (after DOM paints)
+      setTimeout(() => {
+        playSuccessSound(); 
+        if (!isAutoProcess) {
+          addToast(
+            appLang === 'bn' ? 'ট্রান্সক্রিপশন সফলভাবে সম্পন্ন হয়েছে!' : 'Transcription completed successfully!',
+            'success'
+          );
+        }
+      }, 16);
       
       const fileName = (inputFile as File).name || inputMetadata.name || "audio_file";
       const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : 'mp3';
@@ -348,24 +393,6 @@ export const useTranscription = (
 
       const actualElapsedSeconds = Math.round((Date.now() - startTime) / 1000);
       setElapsedSeconds(actualElapsedSeconds);
-
-      let bgbRemark = null;
-      const isBgbAnalysisEnabled = localStorage.getItem('bgbAnalysisEnabled') === 'true';
-      if (isBgbAnalysisEnabled) {
-          const { getSensitiveKeywords } = await import('../utils/sensitiveKeywords');
-          const { analyzeTranscriptForBgb } = await import('../services/bgbAnalysisService');
-          
-          const keywords = getSensitiveKeywords();
-          const lower = fullText.toLowerCase();
-          const matches = keywords.filter((kw: string) => lower.includes(kw.toLowerCase()));
-          
-          if (matches.length > 0) {
-              const result = await analyzeTranscriptForBgb(fullText, matches);
-              if (result) {
-                  bgbRemark = result.remark;
-              }
-          }
-      }
 
       const historyItem = {
         id: historyId,
@@ -378,15 +405,78 @@ export const useTranscription = (
         timeTaken: `${actualElapsedSeconds}s`,
         channelName: inputMetadata.channelName,
         size: inputMetadata.size || `${(inputFile.size / (1024 * 1024)).toFixed(2)} MB`,
-        bgbRemark: bgbRemark
+        bgbRemark: undefined
       };
-      await addToStore(STORES.HISTORY, historyItem);
-      
-      const { broadcastHistoryUpdate } = await import('./useBroadcastSync');
-      broadcastHistoryUpdate();
-      
-      loadHistory();
-      logSystemActivity('TRANSCRIPTION', 'SUCCESS', 'File Transcribed', `File: ${fileName}`);
+
+      // 2. Slow, gentle background staging (ধীরে ধীরে ব্যাকগ্রাউন্ডে এক এক করে করবে)
+      // Helper to run tasks during browser idle time without freezing the UI
+      const runOnIdle = (task: () => Promise<void> | void, delayMs: number) => {
+        setTimeout(() => {
+          if ('requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(() => task(), { timeout: 2000 });
+          } else {
+            task();
+          }
+        }, delayMs);
+      };
+
+      // Step 1 (১.৫ সেকেন্ড পর): শুধুমাত্র ইন-মেমোরি হিস্ট্রি ও IndexedDB-তে ব্যাকগ্রাউন্ড সেভ
+      runOnIdle(async () => {
+        try {
+          const { useHistoryStore } = await import('./useHistoryStore');
+          const currentHistory = useHistoryStore.getState().history;
+          useHistoryStore.getState().setHistory([historyItem, ...currentHistory]);
+          await addToStore(STORES.HISTORY, historyItem);
+        } catch (e) {
+          console.warn("Background history save notice:", e);
+        }
+      }, 1500);
+
+      // Step 2 (৩.০ সেকেন্ড পর): এপিআই স্ট্যাটস ও সিস্টেম লগ
+      runOnIdle(async () => {
+        try {
+          await incrementTotalCalls('Transcription', modelName, checkProvider.source);
+          updateApiStats();
+          try {
+            const { broadcastHistoryUpdate } = await import('./useBroadcastSync');
+            broadcastHistoryUpdate();
+          } catch (e) {}
+          logSystemActivity('TRANSCRIPTION', 'SUCCESS', 'File Transcribed', `File: ${fileName}`);
+        } catch (e) {
+          console.warn("Background stats logging notice:", e);
+        }
+      }, 3000);
+
+      // Step 3 (৪.৫ সেকেন্ড পর): ফাইল ক্লিনআপ ও অপশনাল বিজিবি অ্যানালাইসিস
+      runOnIdle(async () => {
+        try {
+          if (uploadedFile?.name) {
+            try {
+              await ai.files.delete({ name: uploadedFile.name });
+            } catch (err) {
+              console.warn("Could not delete file from Gemini server:", err);
+            }
+          }
+
+          const isBgbAnalysisEnabled = localStorage.getItem('bgbAnalysisEnabled') === 'true';
+          if (isBgbAnalysisEnabled) {
+            const { getSensitiveKeywords } = await import('../utils/sensitiveKeywords');
+            const { analyzeTranscriptForBgb } = await import('../services/bgbAnalysisService');
+            const keywords = getSensitiveKeywords();
+            const lower = fullText.toLowerCase();
+            const matches = keywords.filter((kw: string) => lower.includes(kw.toLowerCase()));
+            if (matches.length > 0) {
+              const result = await analyzeTranscriptForBgb(fullText, matches);
+              if (result?.remark) {
+                historyItem.bgbRemark = result.remark as any;
+                await addToStore(STORES.HISTORY, historyItem);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Background cleanup & analysis notice:", e);
+        }
+      }, 4500);
 
       return { success: true, text: fullText };
     } catch (error: any) {

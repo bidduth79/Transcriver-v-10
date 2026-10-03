@@ -40,7 +40,7 @@ export const Sidebar = ({
   const { isHistoryLoading, bottomRef } = useSidebarHistory(history, historyLimit, setHistoryLimit);
   const [scrollContainerEl, setScrollContainerEl] = React.useState<HTMLDivElement | null>(null);
 
-  const fullGroupedHistory = groupHistory(history);
+  const fullGroupedHistory = React.useMemo(() => groupHistory(history), [history]);
 
   return (
     <aside 

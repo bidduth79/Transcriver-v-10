@@ -58,7 +58,7 @@ export const performMasterSync = async (onProgress: (msg: string, p: number) => 
             onProgress(`Syncing ${displayStoreName}...`, Math.round((i / totalStores) * 100));
 
             // Fetch from all sources (Local, IDB, Firebase, Supabase) and deduplicate
-            const allData = await fetchDataDual(store);
+            const allData = await fetchDataDual(store, true);
 
             if (allData.length === 0) continue;
 
@@ -66,7 +66,7 @@ export const performMasterSync = async (onProgress: (msg: string, p: number) => 
             const batchSize = 10;
             for (let j = 0; j < allData.length; j += batchSize) {
                 const batch = allData.slice(j, j + batchSize);
-                await Promise.all(batch.map((item: any) => saveDataDual(store, item)));
+                await Promise.all(batch.map((item: any) => saveDataDual(store, item, true)));
             }
         }
 

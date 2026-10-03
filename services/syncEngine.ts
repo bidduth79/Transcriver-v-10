@@ -1,11 +1,21 @@
 import { db, auth, authPromise, isFirebaseConfigured } from './firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
-import { getApiUrl } from '../utils/config';
+import { getApiUrl, isLocalServerEnabled } from '../utils/config';
 import { supabase } from './supabase';
 import { isSupabaseConfigured } from './supabase';
 import { addToQueue } from './syncQueue';
 import { get, set, setMany } from 'idb-keyval';
 import { FIREBASE_SYNCED_STORES } from '../constants/storeNames';
+import { enqueueFirebaseWrite, enqueueFirebaseDelete } from './firebaseThrottledQueue';
+
+// ============================================================================
+// 🌐 ক্লাউড ও জেম্প সার্ভার ব্যাকগ্রাউন্ড অটো-সেভ নিয়ন্ত্রণ (Auto Cloud Save Toggles)
+// ----------------------------------------------------------------------------
+// Local XAMPP server sync is dynamically controlled via isLocalServerEnabled() (Settings toggle)
+export const AUTO_SYNC_XAMPP_ENABLED = false; // Kept for compatibility; use isLocalServerEnabled()
+export const AUTO_SYNC_SUPABASE_ENABLED = false;  // Supabase অটো সেভ
+export const AUTO_SYNC_FIREBASE_ENABLED = true;   // Firebase ব্যাকগ্রাউন্ড অটো সেভ (ধীরে ধীরে ব্যাকগ্রাউন্ডে প্রেরিত)
+// ============================================================================
 
 // --- Helper async functions (replaces `new Promise(async ...)` anti-pattern) ---
 
@@ -22,6 +32,8 @@ const fetchFromIdb = async (storeName: string): Promise<any[]> => {
 };
 
 const fetchFromLocalApi = async (storeName: string): Promise<any[]> => {
+  // If local server is disabled, do not attempt to contact 127.0.0.1
+  if (!isLocalServerEnabled()) return [];
   let allLocalData: any[] = [];
   try {
     let page = 1;
@@ -101,15 +113,22 @@ const fetchFromSupabase = async (storeName: string): Promise<any[]> => {
 };
 
 // TRIPLE-SYNC READ
-export const fetchDataDual = async (storeName: string) => {
+export const fetchDataDual = async (storeName: string, forceAll = false) => {
   const promises: Promise<any[]>[] = [
     fetchFromIdb(storeName),
-    fetchFromLocalApi(storeName),
   ];
 
+  if (forceAll || AUTO_SYNC_XAMPP_ENABLED) {
+    promises.push(fetchFromLocalApi(storeName));
+  }
+
   if (FIREBASE_SYNCED_STORES.includes(storeName)) {
-    promises.push(fetchFromFirebase(storeName));
-    promises.push(fetchFromSupabase(storeName));
+    if (forceAll || AUTO_SYNC_FIREBASE_ENABLED) {
+      promises.push(fetchFromFirebase(storeName));
+    }
+    if (forceAll || AUTO_SYNC_SUPABASE_ENABLED) {
+      promises.push(fetchFromSupabase(storeName));
+    }
   }
 
   const results = await Promise.all(promises);
@@ -136,52 +155,60 @@ export const fetchDataDual = async (storeName: string) => {
 };
 
 // TRIPLE-SYNC WRITE
-export const saveDataDual = async (storeName: string, data: any) => {
+export const saveDataDual = async (storeName: string, data: any, forceAll = false) => {
   const id = String(data.id || Date.now());
   const payload = JSON.parse(JSON.stringify({ ...data, id }));
   
-  try {
-     await set(`${storeName}_${id}`, payload);
-  } catch(e) {
-     console.error("Failed to save to Primary Cache (IndexedDB):", e);
-  }
+  // Non-blocking secondary cache write
+  set(`${storeName}_${id}`, payload).catch(e => {
+     console.warn("Secondary cache write notice:", e);
+  });
 
   const isSyncedStore = FIREBASE_SYNCED_STORES.includes(storeName);
   const promises = [];
 
-  // 2. XAMPP Local Write
-  promises.push(
-    fetch(getApiUrl(`api.php?action=save&store=${storeName}`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(res => {
-        if (!res.ok) throw new Error("Local HTTP Failed");
-    }).catch((e) => {
-        addToQueue('local', 'save', storeName, id, payload);
-    })
-  );
+  // 1. XAMPP Local Write
+  if ((forceAll && isLocalServerEnabled()) || isLocalServerEnabled()) {
+    promises.push(
+      fetch(getApiUrl(`api.php?action=save&store=${storeName}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(res => {
+          if (!res.ok) throw new Error("Local HTTP Failed");
+      }).catch((e) => {
+          if (isLocalServerEnabled()) {
+            addToQueue('local', 'save', storeName, id, payload);
+          }
+      })
+    );
+  }
 
   if (isSyncedStore) {
-    // 3. Firebase Write (with null guard)
+    // 2. Firebase Write (with gentle throttled background queue)
     if (isFirebaseConfigured && db) {
-      promises.push(
-        authPromise.then(() => setDoc(doc(db!, storeName, id), payload))
-          .catch(e => {
-              console.warn("Firebase save failed, queuing...", e.message);
-              addToQueue('firebase', 'save', storeName, id, payload);
-          })
-      );
+      if (forceAll) {
+        // Immediate sync if manual master sync is running from Settings
+        promises.push(
+          authPromise.then(() => setDoc(doc(db!, storeName, id), payload))
+            .catch(e => console.warn("Firebase immediate sync warning:", e.message))
+        );
+      } else if (AUTO_SYNC_FIREBASE_ENABLED) {
+        // Non-blocking gentle throttled dispatch (আস্তে আস্তে সময় বাচিয়ে পাঠাবে)
+        enqueueFirebaseWrite(storeName, id, payload);
+      }
     }
 
-    // 4. Supabase Write (with config guard)
-    if (isSupabaseConfigured) {
+    // 3. Supabase Write (with config guard)
+    if ((forceAll || AUTO_SYNC_SUPABASE_ENABLED) && isSupabaseConfigured) {
       promises.push(
         Promise.resolve(supabase.from(storeName).upsert({ id: id, data: payload })).then(({ error }: any) => {
             if (error) throw error;
         }).catch((e: any) => {
             console.warn("Supabase save failed, queuing...", e.message);
-            addToQueue('supabase', 'save', storeName, id, payload);
+            if (AUTO_SYNC_SUPABASE_ENABLED) {
+              addToQueue('supabase', 'save', storeName, id, payload);
+            }
         })
       );
     }
@@ -192,7 +219,7 @@ export const saveDataDual = async (storeName: string, data: any) => {
 };
 
 // TRIPLE-SYNC DELETE
-export const deleteDataDual = async (storeName: string, id: string) => {
+export const deleteDataDual = async (storeName: string, id: string, forceAll = false) => {
   try {
      const del = await import('idb-keyval').then(m => m.del);
      await del(`${storeName}_${id}`);
@@ -203,27 +230,41 @@ export const deleteDataDual = async (storeName: string, id: string) => {
   const isSyncedStore = FIREBASE_SYNCED_STORES.includes(storeName);
   const promises = [];
 
-  promises.push(
-    fetch(getApiUrl(`api.php?action=delete&store=${storeName}&id=${id}`))
-      .then(res => { if (!res.ok) throw new Error("Local HTTP Failed"); })
-      .catch((e) => addToQueue('local', 'delete', storeName, id))
-  );
+  if ((forceAll && isLocalServerEnabled()) || isLocalServerEnabled()) {
+    promises.push(
+      fetch(getApiUrl(`api.php?action=delete&store=${storeName}&id=${id}`))
+        .then(res => { if (!res.ok) throw new Error("Local HTTP Failed"); })
+        .catch((e) => {
+          if (isLocalServerEnabled()) {
+            addToQueue('local', 'delete', storeName, id);
+          }
+        })
+    );
+  }
 
   if (isSyncedStore) {
-    // Firebase delete (with null guard)
+    // Firebase delete (with gentle throttled background queue)
     if (isFirebaseConfigured && db) {
-      promises.push(
-        authPromise.then(() => deleteDoc(doc(db!, storeName, id)))
-          .catch(e => addToQueue('firebase', 'delete', storeName, id))
-      );
+      if (forceAll) {
+        promises.push(
+          authPromise.then(() => deleteDoc(doc(db!, storeName, id)))
+            .catch(e => console.warn("Firebase immediate delete warning:", e.message))
+        );
+      } else if (AUTO_SYNC_FIREBASE_ENABLED) {
+        enqueueFirebaseDelete(storeName, id);
+      }
     }
 
     // Supabase delete (with config guard)
-    if (isSupabaseConfigured) {
+    if ((forceAll || AUTO_SYNC_SUPABASE_ENABLED) && isSupabaseConfigured) {
       promises.push(
         Promise.resolve(supabase.from(storeName).delete().eq('id', id)).then(({ error }: any) => {
             if (error) throw error;
-        }).catch((e: any) => addToQueue('supabase', 'delete', storeName, id))
+        }).catch((e: any) => {
+          if (AUTO_SYNC_SUPABASE_ENABLED) {
+            addToQueue('supabase', 'delete', storeName, id);
+          }
+        })
       );
     }
   }

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initDB } from '../../services/db.ts';
 import { getApiUrl, checkCloudConnection } from '../../services/api.ts';
+import { isLocalServerEnabled } from '../../utils/config';
 import { getApiCallLogs, ApiCallLog, setActiveModel, AVAILABLE_MODELS } from '../../services/ApiKeyManager.ts';
 import { ShortcutModal } from '../modals/ShortcutModal';
 import { MemoryWidget } from './MemoryWidget';
@@ -57,20 +58,24 @@ export const Footer: React.FC<FooterProps> = ({
   // Check Local XAMPP & Cloud Status
   useEffect(() => {
     const checkSystems = async () => {
-      // 1. Check Local
-      try {
-        const response = await fetch(getApiUrl('get_personnel.php'));
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.status === 'online') {
-            setServerStatus('online');
+      // 1. Check Local (Only if enabled in settings)
+      if (isLocalServerEnabled()) {
+        try {
+          const response = await fetch(getApiUrl('get_personnel.php'));
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.status === 'online') {
+              setServerStatus('online');
+            } else {
+              setServerStatus('offline');
+            }
           } else {
             setServerStatus('offline');
           }
-        } else {
+        } catch (e) {
           setServerStatus('offline');
         }
-      } catch (e) {
+      } else {
         setServerStatus('offline');
       }
 

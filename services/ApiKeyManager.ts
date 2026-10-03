@@ -1,6 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { getApiUrl } from './api.ts';
+import { isLocalServerEnabled } from '../utils/config';
 import { getAllFromStore, addToStore, deleteFromStore } from './db.ts';
 import { STORES } from '../constants/storeNames.ts';
 import { useAppStore } from '../hooks/useAppStore';
@@ -93,20 +94,22 @@ export const getActiveProvider = async () => {
     }
   }
 
-  try {
-      const response = await fetch(getApiUrl('get_api_key.php'));
-      if (response.ok) {
-          const data = await response.json();
-          if (data && data.key) {
-              return {
-                  key: data.key,
-                  model: currentModel,
-                  source: 'Server Master Key'
-              };
-          }
-      }
-  } catch (e) {
-      // Ignore
+  if (isLocalServerEnabled()) {
+    try {
+        const response = await fetch(getApiUrl('get_api_key.php'));
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.key) {
+                return {
+                    key: data.key,
+                    model: currentModel,
+                    source: 'Server Master Key'
+                };
+            }
+        }
+    } catch (e) {
+        // Ignore
+    }
   }
 
   return null;
